@@ -2,9 +2,8 @@
 //
 
 #include <iostream>
-#include <cassert>
-#include "gtest/gtest.h"
 #include "JFramework.h"
+using namespace JFramework;
 
 // Define an event type
 class  MyEvent
@@ -35,7 +34,7 @@ int main(int argc, char** argv)
 	//return RUN_ALL_TESTS();
 
      // 获取全局的 TypeEventSystem 实例
-    JFramework::TypeEventSystem& eventSystem = JFramework::TypeEventSystem::Global;
+    TypeEventSystem& eventSystem = TypeEventSystem::Global;
 
     // 注册事件处理器
     auto unregisterHandler = eventSystem.Register<MyEvent>(MyEventHandler);

@@ -1,5 +1,6 @@
 #include <unordered_map>
 #include <typeindex>
+#include <functional>
 
 namespace JFramework
 {
