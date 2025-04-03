@@ -243,7 +243,8 @@ namespace JFramework
 	 class IOCContainer
 	 {
 	 private:
-		 std::unordered_map<std::type_index, std::any> m_instances;
+		 std::unordered_map<std::type_index, std::any> mInstances;
+
 
 	 public:
 		 // ×¢²áÊµÀý
@@ -252,13 +253,13 @@ namespace JFramework
 		 {
 			 auto key = std::type_index(typeid(T));
 
-			 if (m_instances.find(key) != m_instances.end())
+			 if (mInstances.find(key) != mInstances.end())
 			 {
-				 m_instances[key] = instance;
+				 mInstances[key] = instance;
 			 }
 			 else
 			 {
-				 m_instances.emplace(key, instance);
+				 mInstances.emplace(key, instance);
 			 }
 		 }
 
@@ -268,8 +269,8 @@ namespace JFramework
 		 {
 			 auto key = std::type_index(typeid(T));
 
-			 auto it = m_instances.find(key);
-			 if (it != m_instances.end())
+			 auto it = mInstances.find(key);
+			 if (it != mInstances.end())
 			 {
 				 try
 				 {
@@ -291,7 +292,7 @@ namespace JFramework
 			 std::vector<T*> result;
 			 T* casted = nullptr;
 
-			 for (auto& pair : m_instances)
+			 for (auto& pair : mInstances)
 			 {
 				 try
 				 {
@@ -313,7 +314,7 @@ namespace JFramework
 		 // Çå¿ÕÈÝÆ÷
 		 void Clear()
 		 {
-			 m_instances.clear();
+			 mInstances.clear();
 		 }
 	 };
 }
