@@ -11,6 +11,27 @@ namespace JFramework
 		virtual ~IUnRegister() = default;
 	};
 
+	class ICanAutoUnRegister
+	{
+	public:
+		void UnRegisterWhenInstanceDestructed(std::shared_ptr<IUnRegister> unregister)
+		{
+			mUnRegisters.push_back(unregister);
+		}
+
+	protected:
+		virtual ~ICanAutoUnRegister()
+		{
+			for (auto unRegister : mUnRegisters)
+			{
+				unRegister->UnRegister();
+			}
+		}
+
+	protected:
+		std::vector<std::shared_ptr<IUnRegister>> mUnRegisters;
+	};
+
 	class IEasyEvent
 	{
 	public:
