@@ -1,6 +1,7 @@
 #include <unordered_map>
 #include <typeindex>
 #include <functional>
+#include <any>
 
 namespace JFramework
 {
@@ -125,7 +126,7 @@ namespace JFramework
 		typename std::enable_if<std::is_base_of<IEasyEvent, T>::value, T*>::type
 			Get()
 		{
-			return mGlobalEvents.GetEvent<T>();
+			return mGlobalEvents->GetEvent<T>();
 		}
 
 		// 注册事件
@@ -133,7 +134,7 @@ namespace JFramework
 		typename std::enable_if<std::is_base_of<IEasyEvent, T>::value, T*>::type
 			Register()
 		{
-			mGlobalEvents.AddEvent<T>();
+			mGlobalEvents->AddEvent<T>();
 		}
 
 		// 添加事件(与Register相同)
@@ -175,22 +176,22 @@ namespace JFramework
 
 
 	private:
-		static EasyEvents mGlobalEvents;
+		static EasyEvents* mGlobalEvents;
 		std::unordered_map<std::type_index, std::unique_ptr<IEasyEvent>> mTypeEvents;
 	};
 
 	// 初始化静态成员
-	EasyEvents EasyEvents::mGlobalEvents;
+	EasyEvents* EasyEvents::mGlobalEvents = new EasyEvents();
 
 
 	class TypeEventSystem
 	{
 	public:
-		static TypeEventSystem Global;
+		static TypeEventSystem* Global;
 
 		TypeEventSystem()
 		{
-
+			
 		}
 		virtual ~TypeEventSystem() = default;
 
@@ -237,6 +238,82 @@ namespace JFramework
 		EasyEvents mEvents;
 	};
 
-	 TypeEventSystem TypeEventSystem::Global;
+	 TypeEventSystem* TypeEventSystem::Global = new TypeEventSystem();
 
+	 class IOCContainer
+	 {
+	 private:
+		 std::unordered_map<std::type_index, std::any> m_instances;
+
+	 public:
+		 // 注册实例
+		 template<typename T>
+		 void Register(T* instance)
+		 {
+			 auto key = std::type_index(typeid(T));
+
+			 if (m_instances.find(key) != m_instances.end())
+			 {
+				 m_instances[key] = instance;
+			 }
+			 else
+			 {
+				 m_instances.emplace(key, instance);
+			 }
+		 }
+
+		 // 获取实例
+		 template<typename T>
+		 T* Get()
+		 {
+			 auto key = std::type_index(typeid(T));
+
+			 auto it = m_instances.find(key);
+			 if (it != m_instances.end())
+			 {
+				 try
+				 {
+					 return std::any_cast<T*>(it->second);
+				 }
+				 catch (const std::bad_any_cast&)
+				 {
+					 return nullptr;
+				 }
+			 }
+
+			 return nullptr;
+		 }
+
+		 // 获取所有可转换为T类型的实例
+		 template<typename T>
+		 std::vector<T*> GetInstancesByType()
+		 {
+			 std::vector<T*> result;
+			 T* casted = nullptr;
+
+			 for (auto& pair : m_instances)
+			 {
+				 try
+				 {
+					 casted = std::any_cast<T*>(pair.second);
+					 if (casted != nullptr)
+					 {
+						 result.push_back(casted);
+					 }
+				 }
+				 catch (const std::bad_any_cast&)
+				 {
+					 // 类型不匹配，跳过
+				 }
+			 }
+
+			 return result;
+		 }
+
+		 // 清空容器
+		 void Clear()
+		 {
+			 m_instances.clear();
+		 }
+	 };
 }

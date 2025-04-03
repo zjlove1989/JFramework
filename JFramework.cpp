@@ -33,24 +33,22 @@ int main(int argc, char** argv)
 	//::testing::InitGoogleTest(&argc, argv);
 	//return RUN_ALL_TESTS();
 
-     // 获取全局的 TypeEventSystem 实例
-    TypeEventSystem& eventSystem = TypeEventSystem::Global;
-
+ 
     // 注册事件处理器
-    auto unregisterHandler = eventSystem.Register<MyEvent>(MyEventHandler);
+    auto unregisterHandler = TypeEventSystem::Global->Register<MyEvent>(MyEventHandler);
 
     // 发送事件
-    eventSystem.Send<MyEvent>();
+    TypeEventSystem::Global->Send<MyEvent>();
 
     // 发送带有参数的事件
     MyEvent event(42, "Hello World");
-    eventSystem.Send(&event);
+    TypeEventSystem::Global->Send(&event);
 
     // 注销事件处理器
     unregisterHandler->UnRegister();
 
     // 再次发送事件，处理器不再被调用
-    eventSystem.Send<MyEvent>();
+    TypeEventSystem::Global->Send<MyEvent>();
 
 
 	return 0;
