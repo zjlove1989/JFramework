@@ -387,8 +387,6 @@ TEST(EventBusTest, ClearAllHandlers)
 	EXPECT_FALSE(handler2.eventHandled);
 }
 
-
-
 TEST(EventBusTest, ExceptionInEventHandler)
 {
 	EventBus bus;
@@ -422,7 +420,6 @@ TEST(EventBusTest, ExceptionInEventHandler)
 	EXPECT_NO_THROW(bus.SendEvent(std::make_shared<TestEvent>()));
 	EXPECT_TRUE(good.handled);
 }
-
 
 // Architecture 测试
 TEST(ArchitectureTest, ComponentRegistration)
@@ -1011,7 +1008,6 @@ TEST(CapabilityTest, CanSendCommand)
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
-
 TEST(ExceptionTest, ComponentNotRegistered)
 {
 	auto arch = std::make_shared<TestArchitecture>();
@@ -1461,6 +1457,41 @@ TEST(MemoryTest, EventHandlerUnregistration)
 
 	// handler超出作用域后应被释放
 	EXPECT_TRUE(weakHandler.expired());
+}
+
+TEST(ControllerTest, ControllerFunctionality)
+{
+	class TestController : public AbstractController
+	{
+		void OnEvent(std::shared_ptr<IEvent> event) override
+		{
+			if (auto* e = dynamic_cast<TestEvent*>(event.get()))
+			{
+				handled = true;
+			}
+		}
+
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
+		{
+			return mArch;
+		}
+
+	private:
+		std::shared_ptr<IArchitecture> mArch;
+
+	public:
+		explicit TestController(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
+
+		bool handled = false;
+	};
+
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	TestController controller(arch);
+	arch->RegisterEvent<TestEvent>(&controller);
+	arch->SendEvent(std::make_shared<TestEvent>());
+	EXPECT_TRUE(controller.handled);
 }
 
 int main(int argc, char** argv)
