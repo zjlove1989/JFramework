@@ -672,7 +672,14 @@ namespace JFramework
 
 			for (auto& handler : subscribers)
 			{
-				handler->HandleEvent(event);
+				try
+				{
+					handler->HandleEvent(event);
+				}
+				catch (const std::exception&)
+				{
+
+				}
 			}
 		}
 
@@ -877,9 +884,6 @@ namespace JFramework
 			{
 				UnInitializeComponent(system);
 			}
-
-			mContainer->Clear();
-			mEventBus->Clear();
 		}
 
 		virtual void InitArchitecture()
@@ -899,6 +903,11 @@ namespace JFramework
 			{
 				InitializeComponent(system);
 			}
+		}
+
+		IOCContainer* GetContainer()
+		{
+			return mContainer.get();
 		}
 
 	protected:

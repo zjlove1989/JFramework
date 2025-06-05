@@ -269,6 +269,37 @@ TEST(EventBusTest, EventDataIntegrity)
 	EXPECT_EQ(42, receivedEvent->eventData);
 }
 
+TEST(EventBusTest, EventHandlerOrder)
+{
+	EventBus bus;
+	std::vector<int> handlerOrder;
+
+	class OrderedHandler : public ICanHandleEvent
+	{
+	public:
+		OrderedHandler(int id, std::vector<int>& order) : mId(id), mOrder(order) {}
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			mOrder.push_back(mId);
+		}
+	private:
+		int mId;
+		std::vector<int>& mOrder;
+	};
+
+	OrderedHandler handler1(1, handlerOrder);
+	OrderedHandler handler2(2, handlerOrder);
+
+	bus.RegisterEvent(typeid(TestEvent), &handler1);
+	bus.RegisterEvent(typeid(TestEvent), &handler2);
+	bus.SendEvent(std::make_shared<TestEvent>());
+
+	// 验证事件处理顺序与注册顺序一致
+	EXPECT_EQ(2, handlerOrder.size());
+	EXPECT_EQ(1, handlerOrder[0]);
+	EXPECT_EQ(2, handlerOrder[1]);
+}
+
 // Architecture 测试
 TEST(ArchitectureTest, ComponentRegistration)
 {
@@ -404,6 +435,120 @@ TEST(ArchitectureTest, MultipleInitDeinitCycles)
 	}
 }
 
+static int executionCount = 0;
+
+TEST(ArchitectureTest, CommandInCommand)
+{
+	class NestedCommand : public AbstractCommand
+	{
+	protected:
+		void OnExecute() override
+		{
+			// 在命令中发送另一个命令
+			this->SendCommand<TestCommand>();
+		}
+	public:
+		
+	};
+
+	executionCount = 0;
+
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	auto cmd = std::make_unique<NestedCommand>();
+	arch->SendCommand(std::move(cmd));
+
+	// 验证内部命令也被执行
+	auto testCmd = std::make_unique<TestCommand>();
+	auto cmdPtr = testCmd.get();
+	arch->SendCommand(std::move(testCmd));
+	EXPECT_TRUE(cmdPtr->executed);
+}
+
+TEST(ArchitectureTest, ChainedQueries)
+{
+	class FirstQuery : public AbstractQuery<int>
+	{
+	protected:
+		int OnDo() override { return 10; }
+	};
+
+	class SecondQuery : public AbstractQuery<std::string>
+	{
+	protected:
+		std::string OnDo() override
+		{
+			auto firstResult = this->SendQuery<FirstQuery>();
+			return "Result:" + std::to_string(firstResult);
+		}
+	};
+
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	auto result = arch->SendQuery(std::make_unique<SecondQuery>());
+	EXPECT_EQ("Result:10", result);
+}
+
+TEST(EventBusTest, ExceptionInEventHandler)
+{
+	EventBus bus;
+
+	class FaultyHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			throw std::runtime_error("Handler error");
+		}
+	};
+
+	class GoodHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			handled = true;
+		}
+		bool handled = false;
+	};
+
+	FaultyHandler faulty;
+	GoodHandler good;
+
+	bus.RegisterEvent(typeid(TestEvent), &faulty);
+	bus.RegisterEvent(typeid(TestEvent), &good);
+
+	// 即使一个处理器抛出异常，其他处理器仍应正常工作
+	EXPECT_NO_THROW(bus.SendEvent(std::make_shared<TestEvent>()));
+	EXPECT_TRUE(good.handled);
+}
+
+TEST(ConcurrencyTest, ConcurrentComponentRegistration)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	std::vector<std::thread> threads;
+	const int threadCount = 10;
+
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([arch]
+			{
+				auto model = std::make_shared<ExtendedTestModel>();
+				arch->RegisterModel<ExtendedTestModel>(model);
+			});
+	}
+
+	for (auto& t : threads)
+	{
+		t.join();
+	}
+
+	// 验证所有注册都成功
+	auto models = arch->GetContainer()->GetAll<IModel>();
+	EXPECT_EQ(1, models.size()); // 原始1个+新增的threadCount个
+}
 // BindableProperty 测试
 TEST(BindablePropertyTest, ValueChangeNotification)
 {
@@ -493,6 +638,28 @@ TEST(BindablePropertyTest, ValueSemantics)
 	// 测试右值
 	prop.SetValue(std::string(1000, 'b'));
 	EXPECT_EQ(std::string(1000, 'b'), prop.GetValue());
+}
+
+TEST(BindablePropertyTest, MemoryManagement)
+{
+	auto prop = std::make_shared<BindableProperty<int>>(0);
+	auto observer = std::make_shared<bool>(false);
+
+	// 使用weak_ptr检测内存泄漏
+	std::weak_ptr<bool> weakObserver = observer;
+	{
+		auto unregister = prop->Register([observer](int) 
+			{ 
+			*observer = true; 
+			});
+		prop->SetValue(1);
+		prop->UnRegister(unregister->GetId());
+		EXPECT_TRUE(*observer);
+	}
+
+	// observer应该被释放
+	observer.reset();
+	EXPECT_TRUE(weakObserver.expired());
 }
 
 // 能力接口测试
@@ -641,6 +808,40 @@ TEST(PerformanceTest, CommandThroughput)
 
 	std::cout << "Sent " << iterations << " commands in " << duration.count() << "ms\n";
 	EXPECT_TRUE(duration.count() < 100); // 确保性能在合理范围内
+}
+
+TEST(PerformanceTest, EventThroughput)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	class PerformanceEventHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			count++;
+		}
+		std::atomic<int> count{ 0 };
+	};
+
+	PerformanceEventHandler handler;
+	arch->RegisterEvent<TestEvent>(&handler);
+
+	const int iterations = 10000;
+	auto start = std::chrono::high_resolution_clock::now();
+
+	for (int i = 0; i < iterations; ++i)
+	{
+		arch->SendEvent(std::make_shared<TestEvent>());
+	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+	std::cout << "Sent " << iterations << " events in " << duration.count() << "ms\n";
+	EXPECT_EQ(iterations, handler.count.load());
+	EXPECT_TRUE(duration.count() < 100);
 }
 
 int main(int argc, char** argv)
