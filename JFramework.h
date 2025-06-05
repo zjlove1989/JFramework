@@ -260,12 +260,7 @@ namespace JFramework
 	{
 	public:
 		virtual ~IBelongToArchitecture() = default;
-		virtual std::shared_ptr<IArchitecture> GetArchitecture() const = 0;
-		template <typename T>
-		std::shared_ptr<T> GetArchitectureAs() const
-		{
-			return std::dynamic_pointer_cast<T>(GetArchitecture());
-		}
+		virtual std::weak_ptr<IArchitecture> GetArchitecture() const = 0;
 	};
 
 	/// @brief 架构设置接口
@@ -285,7 +280,7 @@ namespace JFramework
 		template <typename T>
 		std::shared_ptr<T> GetModel()
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
@@ -315,7 +310,7 @@ namespace JFramework
 		template <typename T>
 		std::shared_ptr<T> GetSystem()
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
@@ -345,7 +340,7 @@ namespace JFramework
 		template <typename T, typename... Args>
 		void SendCommand(Args&&... args)
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
@@ -355,7 +350,7 @@ namespace JFramework
 
 		void SendCommand(std::unique_ptr<ICommand> command)
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(command).name());
@@ -376,7 +371,7 @@ namespace JFramework
 				TQuery>,
 				"TQuery must inherit from IQuery");
 
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(TQuery).name());
@@ -396,7 +391,7 @@ namespace JFramework
 				TQuery>,
 				"TQuery must inherit from IQuery");
 
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(TQuery).name());
@@ -413,7 +408,7 @@ namespace JFramework
 		template <typename T>
 		std::shared_ptr<T> GetUtility()
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
@@ -445,7 +440,7 @@ namespace JFramework
 		template <typename T, typename... Args>
 		void SendEvent(Args&&... args)
 		{
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
@@ -474,7 +469,7 @@ namespace JFramework
 			static_assert(std::is_base_of_v<IEvent, TEvent>,
 				"TEvent must inherit from IEvent");
 
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch) throw ArchitectureNotSetException(typeid(TEvent).name());
 
 			arch->RegisterEvent(typeid(TEvent), handler);
@@ -486,7 +481,7 @@ namespace JFramework
 			static_assert(std::is_base_of_v<IEvent, TEvent>,
 				"TEvent must inherit from IEvent");
 
-			auto arch = GetArchitecture();
+			auto arch = GetArchitecture().lock();
 			if (!arch) throw ArchitectureNotSetException(typeid(TEvent).name());
 
 			arch->UnRegisterEvent(typeid(TEvent), handler);
@@ -996,17 +991,17 @@ namespace JFramework
 	class AbstractCommand : public ICommand
 	{
 	private:
-		std::shared_ptr<IArchitecture> mArchitecture;
+		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArchitecture;
 		}
 
 		void Execute() override { this->OnExecute(); }
 
-	private:
+	public:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override
 		{
 			mArchitecture = architecture;
@@ -1019,10 +1014,10 @@ namespace JFramework
 	class AbstractModel : public IModel
 	{
 	private:
-		std::shared_ptr<IArchitecture> mArchitecture;
+		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArchitecture;
 		}
@@ -1051,10 +1046,10 @@ namespace JFramework
 	class AbstractSystem : public ISystem
 	{
 	private:
-		std::shared_ptr<IArchitecture> mArchitecture;
+		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArchitecture;
 		}
@@ -1090,10 +1085,10 @@ namespace JFramework
 	class AbstractQuery : public IQuery<TResult>
 	{
 	private:
-		std::shared_ptr<IArchitecture> mArchitecture;
+		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArchitecture;
 		}

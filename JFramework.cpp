@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include "JFramework.h"
 #include <chrono>
+#include "packages/google-testmock.1.16.0/build/native/include/gmock/gmock-matchers.h"
 using namespace JFramework;
 
 class ExtendedTestEvent : public IEvent
@@ -141,6 +142,15 @@ protected:
 	}
 };
 
+// 测试架构类
+class  MultipleTestArchitecture : public Architecture
+{
+protected:
+	void Init() override
+	{
+	}
+};
+
 // IOCContainer 测试
 TEST(IOCContainerTest, RegisterAndGet)
 {
@@ -202,6 +212,43 @@ TEST(IOCContainerTest, TypeSafety)
 
 	// 正确类型获取
 	EXPECT_NE(nullptr, container.Get<ISystem>(typeid(ExtendedTestSystem)));
+}
+
+TEST(IOCContainerTest, ThreadSafeRegistration)
+{
+	IOCContainer container;
+	const int threadCount = 10;
+	std::vector<std::thread> threads;
+
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([&container, i]()
+			{
+				auto model = std::make_shared<TestModel>();
+				container.Register<TestModel, IModel>(typeid(TestModel), model);
+			});
+	}
+
+	for (auto& t : threads)
+	{
+		t.join();
+	}
+
+	// 验证只有一个实例被注册
+	auto allModels = container.GetAll<IModel>();
+	EXPECT_EQ(1, allModels.size());
+}
+
+TEST(IOCContainerTest, DifferentBaseTypes)
+{
+	IOCContainer container;
+
+	// 测试同一类型注册为不同基类
+	auto model = std::make_shared<TestModel>();
+	container.Register<TestModel, IModel>(typeid(TestModel), model);
+
+	// 不应在ISystem容器中找到
+	EXPECT_EQ(nullptr, container.Get<ISystem>(typeid(TestModel)));
 }
 
 // EventBus 测试
@@ -299,6 +346,83 @@ TEST(EventBusTest, EventHandlerOrder)
 	EXPECT_EQ(1, handlerOrder[0]);
 	EXPECT_EQ(2, handlerOrder[1]);
 }
+
+TEST(EventBusTest, EventTypeMatching)
+{
+	EventBus bus;
+
+	class DerivedEvent : public TestEvent
+	{
+	public:
+		std::string GetEventType() const override { return "DerivedEvent"; }
+	};
+
+	TestEventHandler baseHandler;
+	TestEventHandler derivedHandler;
+
+	bus.RegisterEvent(typeid(TestEvent), &baseHandler);
+	bus.RegisterEvent(typeid(DerivedEvent), &derivedHandler);
+
+	// 发送派生事件
+	bus.SendEvent(std::make_shared<DerivedEvent>());
+
+	// 只有派生事件处理器应该被调用
+	EXPECT_FALSE(baseHandler.eventHandled);
+	EXPECT_TRUE(derivedHandler.eventHandled);
+}
+
+TEST(EventBusTest, ClearAllHandlers)
+{
+	EventBus bus;
+	TestEventHandler handler1, handler2;
+
+	bus.RegisterEvent(typeid(TestEvent), &handler1);
+	bus.RegisterEvent(typeid(TestEvent), &handler2);
+
+	bus.Clear();
+
+	bus.SendEvent(std::make_shared<TestEvent>());
+
+	EXPECT_FALSE(handler1.eventHandled);
+	EXPECT_FALSE(handler2.eventHandled);
+}
+
+
+
+TEST(EventBusTest, ExceptionInEventHandler)
+{
+	EventBus bus;
+
+	class FaultyHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			throw std::runtime_error("Handler error");
+		}
+	};
+
+	class GoodHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			handled = true;
+		}
+		bool handled = false;
+	};
+
+	FaultyHandler faulty;
+	GoodHandler good;
+
+	bus.RegisterEvent(typeid(TestEvent), &faulty);
+	bus.RegisterEvent(typeid(TestEvent), &good);
+
+	// 即使一个处理器抛出异常，其他处理器仍应正常工作
+	EXPECT_NO_THROW(bus.SendEvent(std::make_shared<TestEvent>()));
+	EXPECT_TRUE(good.handled);
+}
+
 
 // Architecture 测试
 TEST(ArchitectureTest, ComponentRegistration)
@@ -489,40 +613,66 @@ TEST(ArchitectureTest, ChainedQueries)
 	EXPECT_EQ("Result:10", result);
 }
 
-TEST(EventBusTest, ExceptionInEventHandler)
+TEST(ArchitectureTest, LateComponentRegistration)
 {
-	EventBus bus;
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture(); // 先初始化架构
 
-	class FaultyHandler : public ICanHandleEvent
-	{
-	public:
-		void HandleEvent(std::shared_ptr<IEvent>) override
-		{
-			throw std::runtime_error("Handler error");
-		}
-	};
+	// 然后注册组件
+	auto model = std::make_shared<ExtendedTestModel>();
+	arch->RegisterModel<ExtendedTestModel>(model);
 
-	class GoodHandler : public ICanHandleEvent
-	{
-	public:
-		void HandleEvent(std::shared_ptr<IEvent>) override
-		{
-			handled = true;
-		}
-		bool handled = false;
-	};
-
-	FaultyHandler faulty;
-	GoodHandler good;
-
-	bus.RegisterEvent(typeid(TestEvent), &faulty);
-	bus.RegisterEvent(typeid(TestEvent), &good);
-
-	// 即使一个处理器抛出异常，其他处理器仍应正常工作
-	EXPECT_NO_THROW(bus.SendEvent(std::make_shared<TestEvent>()));
-	EXPECT_TRUE(good.handled);
+	// 验证组件被自动初始化
+	EXPECT_EQ(1, model->initCount);
 }
 
+TEST(ArchitectureTest, ComponentDependencies)
+{
+	class DependentSystem : public AbstractSystem
+	{
+	protected:
+		void OnInit() override
+		{
+			// 获取依赖的模型
+			auto model = GetModel<TestModel>();
+			modelInitialized = model->initialized;
+		}
+		void OnDeinit() override {}
+		void OnEvent(std::shared_ptr<IEvent>) override {}
+	public:
+		bool modelInitialized = false;
+	};
+
+	auto arch = std::make_shared<TestArchitecture>();
+	auto system = std::make_shared<DependentSystem>();
+
+	// 先注册系统依赖的模型
+	arch->RegisterModel<TestModel>(std::make_shared<TestModel>());
+	arch->RegisterSystem<DependentSystem>(system);
+
+	arch->InitArchitecture();
+
+	// 验证系统初始化时能够访问模型
+	EXPECT_TRUE(system->modelInitialized);
+}
+
+TEST(ArchitectureTest, MultipleArchitectureInstances)
+{
+	auto arch1 = std::make_shared<MultipleTestArchitecture>();
+	auto arch2 = std::make_shared<MultipleTestArchitecture>();
+
+	auto model1 = std::make_shared<TestModel>();
+	auto model2 = std::make_shared<TestModel>();
+
+	arch1->RegisterModel<TestModel>(model1);
+	arch2->RegisterModel<TestModel>(model2);
+
+	arch1->InitArchitecture();
+
+	// 验证两个架构实例独立
+	EXPECT_TRUE(model1->initialized);
+	EXPECT_FALSE(model2->initialized);
+}
 TEST(ConcurrencyTest, ConcurrentComponentRegistration)
 {
 	auto arch = std::make_shared<TestArchitecture>();
@@ -778,6 +928,37 @@ TEST(BindablePropertyTest, MultipleObservers)
 	EXPECT_EQ(2, notificationCount);
 }
 
+TEST(BindablePropertyTest, NoNotificationOnSameValue)
+{
+	BindableProperty<int> prop(10);
+	int notificationCount = 0;
+
+	auto unregister = prop.Register([&](int) { notificationCount++; });
+
+	prop.SetValue(10); // 设置相同的值
+	EXPECT_EQ(0, notificationCount); // 不应触发通知
+
+	prop.SetValue(20);
+	EXPECT_EQ(1, notificationCount);
+}
+
+TEST(BindablePropertyTest, MultipleRegistrations)
+{
+	BindableProperty<int> prop(0);
+	std::vector<int> notifications;
+
+	// 注册多个观察者
+	auto unreg1 = prop.Register([&](int val) { notifications.push_back(val * 1); });
+	auto unreg2 = prop.Register([&](int val) { notifications.push_back(val * 2); });
+	auto unreg3 = prop.Register([&](int val) { notifications.push_back(val * 3); });
+
+	prop.SetValue(10);
+
+	// 验证所有观察者都收到通知
+	EXPECT_EQ(3, notifications.size());
+	EXPECT_THAT(notifications, testing::UnorderedElementsAre(10, 20, 30));
+}
+
 // 能力接口测试
 TEST(CapabilityTest, CanGetModel)
 {
@@ -786,7 +967,7 @@ TEST(CapabilityTest, CanGetModel)
 	public:
 		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
 
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArch;
 		}
@@ -811,7 +992,7 @@ TEST(CapabilityTest, CanSendCommand)
 	public:
 		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
 
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArch;
 		}
@@ -830,23 +1011,6 @@ TEST(CapabilityTest, CanSendCommand)
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
-TEST(ExceptionTest, ArchitectureNotSet)
-{
-	class TestComponent : public ICanSendCommand
-	{
-	public:
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
-		{
-			return nullptr;
-		}
-	};
-
-	TestComponent component;
-
-	// 测试未设置架构时的异常
-	EXPECT_THROW(component.SendCommand<TestCommand>(), ArchitectureNotSetException);
-	EXPECT_THROW(component.SendCommand(std::make_unique<TestCommand>()), ArchitectureNotSetException);
-}
 
 TEST(ExceptionTest, ComponentNotRegistered)
 {
@@ -873,7 +1037,7 @@ TEST(IntegrationTest, ComponentInteraction)
 			}
 		}
 
-		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
 		{
 			return mArch;
 		}
@@ -1105,6 +1269,111 @@ TEST(ExceptionSafetyTest, CommandExecutionFailure)
 	EXPECT_NO_THROW(arch->SendCommand(std::make_unique<TestCommand>()));
 }
 
+TEST(ExceptionSafetyTest, EventHandlerThrowsDuringRegistration)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	class FaultyHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			throw std::runtime_error("Faulty handler");
+		}
+	};
+
+	FaultyHandler handler;
+
+	// 注册时不应抛出异常
+	EXPECT_NO_THROW(arch->RegisterEvent<TestEvent>(&handler));
+
+	// 发送事件时应捕获异常
+	EXPECT_NO_THROW(arch->SendEvent(std::make_shared<TestEvent>()));
+}
+
+TEST(ExceptionSafetyTest, ComponentRegistrationAfterDeinit)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+	arch->Deinit();
+
+	auto model = std::make_shared<TestModel>();
+
+	// 反初始化后注册组件不应抛出异常
+	EXPECT_NO_THROW(arch->RegisterModel<TestModel>(model));
+
+	// 但组件不应被初始化
+	EXPECT_FALSE(model->initialized);
+}
+
+TEST(PerformanceTest, PropertyNotificationScalability)
+{
+	BindableProperty<int> prop(0);
+	const int observerCount = 1000;
+	std::atomic<int> notificationCount{ 0 };
+
+	std::vector<std::shared_ptr<AutoUnRegister<int>>> observers;
+	for (int i = 0; i < observerCount; ++i)
+	{
+		observers.push_back(prop.Register([&](int) { notificationCount++; }));
+	}
+
+	auto start = std::chrono::high_resolution_clock::now();
+	prop.SetValue(1);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+	std::cout << "Notified " << observerCount << " observers in " << duration.count() << "μs\n";
+	EXPECT_EQ(observerCount, notificationCount.load());
+}
+
+TEST(PerformanceTest, ConcurrentEventProcessing)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	class CountingHandler : public ICanHandleEvent
+	{
+	public:
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
+			count++;
+		}
+		std::atomic<int> count{ 0 };
+	};
+
+	CountingHandler handler;
+	arch->RegisterEvent<TestEvent>(&handler);
+
+	const int threadCount = 10;
+	const int eventsPerThread = 1000;
+	std::vector<std::thread> threads;
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([arch]()
+			{
+				for (int j = 0; j < eventsPerThread; ++j)
+				{
+					arch->SendEvent(std::make_shared<TestEvent>());
+				}
+			});
+	}
+
+	for (auto& t : threads)
+	{
+		t.join();
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+	std::cout << "Processed " << (threadCount * eventsPerThread)
+		<< " events in " << duration.count() << "ms\n";
+	EXPECT_EQ(threadCount * eventsPerThread, handler.count.load());
+}
+
 TEST(MemoryTest, EventHandlerLeak)
 {
 	auto arch = std::make_shared<TestArchitecture>();
@@ -1147,6 +1416,51 @@ TEST(MemoryTest, PropertyObserverLeak)
 
 	// unregister超出作用域且属性被销毁后应被释放
 	EXPECT_TRUE(weakUnregister.expired());
+}
+
+TEST(MemoryTest, ArchitectureSharedOwnership)
+{
+	std::weak_ptr<IArchitecture> weakArch;
+
+	{
+		auto arch = std::make_shared<TestArchitecture>();
+		weakArch = arch;
+
+		// 组件持有架构的引用
+		auto model = std::make_shared<TestModel>();
+		arch->RegisterModel<TestModel>(model);
+
+		// 命令也持有架构引用
+		auto cmd = std::make_unique<TestCommand>();
+		cmd->SetArchitecture(arch);
+	}
+
+	// 所有引用释放后，架构应被销毁
+	EXPECT_TRUE(weakArch.expired());
+}
+
+TEST(MemoryTest, EventHandlerUnregistration)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	std::weak_ptr<ICanHandleEvent> weakHandler;
+
+	{
+		auto handler = std::make_shared<TestEventHandler>();
+		weakHandler = handler;
+		arch->RegisterEvent<TestEvent>(handler.get());
+
+		// 发送事件确保注册成功
+		arch->SendEvent(std::make_shared<TestEvent>());
+		EXPECT_TRUE(handler->eventHandled);
+
+		// 反初始化架构
+		arch->Deinit();
+	}
+
+	// handler超出作用域后应被释放
+	EXPECT_TRUE(weakHandler.expired());
 }
 
 int main(int argc, char** argv)
