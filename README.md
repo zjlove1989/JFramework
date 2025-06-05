@@ -1,23 +1,22 @@
-Here's a GitHub Markdown document summarizing the JFramework C++ framework and its unit tests:
+# JFramework C++ 框架
 
-# JFramework - A C++ Application Framework
+JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、事件总线、命令查询分离（CQRS）等核心功能，适用于构建模块化、可扩展的应用程序。框架设计遵循面向接口编程原则，支持组件的动态注册与管理，并通过单元测试确保稳定性。
 
-## Overview
-JFramework is a C++ framework that provides a structured architecture for building applications with components like Models, Systems, Commands, Queries, and Events. It follows an Inversion of Control (IoC) pattern and supports event-driven programming.
+## 核心特性
 
-## Key Features
+### 1、依赖注入（IOC）容器
+- 支持系统（System）、模型（Model）、工具类（Utility）的动态注册与获取
+- 基于 std::type_index 的类型管理，确保类型安全
+- 线程安全的组件注册与获取，适用于多线程环境
 
-### Core Components
-- **IOC Container**: Manages component lifecycle and dependencies
-- **Event Bus**: Handles event publishing/subscribing
-- **Command Pattern**: For executing operations
-- **Query Pattern**: For data retrieval
-- **Bindable Properties**: Observable properties with change notifications
+### 2、事件总线（Event Bus）
+- 支持事件的发布 - 订阅模式，可注册多个事件处理器
+- 自动处理事件类型匹配，支持继承体系下的事件分发
+- 线程安全的事件发送与处理，确保高并发场景下的稳定性
 
-### Component Types
-- **Models**: Data containers
-- **Systems**: Business logic processors
-- **Controllers**: Mediators between models and views
-- **Utilities**: Shared services
+### 3、命令与查询（CQRS）
+- 命令（Command）模式：支持异步执行命令，可链式调用
+- 查询（Query）模式：支持带返回值的查询操作，支持参数传递
+- 组件间通过命令 / 查询解耦，提升可维护性
 
 
