@@ -978,7 +978,7 @@ namespace JFramework
 		virtual void OnEvent(std::shared_ptr<IEvent> event) = 0;
 	};
 
-	class AbstractController : public UnRegisterTrigger, public IController
+	class AbstractController : public IController
 	{
 	private:
 		void HandleEvent(std::shared_ptr<IEvent> event) override { OnEvent(event); }
