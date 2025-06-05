@@ -20,22 +20,4 @@ JFramework is a C++ framework that provides a structured architecture for buildi
 - **Controllers**: Mediators between models and views
 - **Utilities**: Shared services
 
-## Architecture
-
-### Core Interfaces
-```cpp
-class IArchitecture {
-    // Component registration
-    virtual void RegisterSystem/Model/Utility(...);
-    
-    // Component access
-    virtual std::shared_ptr<ISystem/IModel/IUtility> Get(...);
-    
-    // Command/Event/Query operations
-    virtual void SendCommand/SendEvent(...);
-};
-
-class ICanInit {};       // Initialization interface
-class IBelongToArchitecture {}; // Architecture ownership
-class ICanSetArchitecture {};   // Architecture assignment
 
