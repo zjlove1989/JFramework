@@ -386,6 +386,24 @@ TEST(ArchitectureTest, UtilityUsage)
 
 	// 测试utility的具体功能
 }
+
+TEST(ArchitectureTest, MultipleInitDeinitCycles)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	auto model = std::make_shared<ExtendedTestModel>();
+	arch->RegisterModel<ExtendedTestModel>(model);
+
+	// 多次初始化和反初始化
+	for (int i = 0; i < 3; ++i)
+	{
+		arch->InitArchitecture();
+		EXPECT_EQ(i + 1, model->initCount);
+
+		arch->Deinit();
+		EXPECT_EQ(i + 1, model->deinitCount);
+	}
+}
+
 // BindableProperty 测试
 TEST(BindablePropertyTest, ValueChangeNotification)
 {

@@ -244,13 +244,13 @@ namespace JFramework
 	class ICanInit
 	{
 	public:
-		bool IsInitialized() const { return mInitialized.load(); }
+		bool IsInitialized() const { return mInitialized; }
 		void SetInitialized(bool initialized) { mInitialized = initialized; }
 		virtual ~ICanInit() = default;
 		virtual void Init() = 0;
 		virtual void Deinit() = 0;
 	protected:
-		std::atomic<bool> mInitialized{ false };
+		bool mInitialized = false;
 	};
 
 	/// @brief ¼Ü¹¹¹éÊô½Ó¿Ú
@@ -722,7 +722,7 @@ namespace JFramework
 			}
 			system->SetArchitecture(shared_from_this());
 			mContainer->Register<ISystem>(typeId, system);
-			if (mInitialized.load())
+			if (mInitialized)
 			{
 				InitializeComponent(system);
 			}
@@ -862,7 +862,9 @@ namespace JFramework
 
 		void Deinit() override
 		{
-			if (!mInitialized.exchange(false)) return;
+			if (!mInitialized) return;
+
+			mInitialized = false;
 
 			this->OnDeinit();
 
@@ -882,7 +884,9 @@ namespace JFramework
 
 		virtual void InitArchitecture()
 		{
-			if (mInitialized.exchange(true)) return;
+			if (mInitialized) return;
+
+			mInitialized = true;
 
 			this->Init();
 
@@ -898,7 +902,7 @@ namespace JFramework
 		}
 
 	protected:
-		std::atomic<bool> mInitialized{ false };
+		bool mInitialized;
 
 		std::unique_ptr<IOCContainer> mContainer;
 		std::unique_ptr<EventBus> mEventBus;
@@ -907,7 +911,7 @@ namespace JFramework
 		{
 			mContainer = std::make_unique<IOCContainer>();
 			mEventBus = std::make_unique<EventBus>();
-			mInitialized.store(false);
+			mInitialized = false;
 		}
 
 		virtual ~Architecture()
