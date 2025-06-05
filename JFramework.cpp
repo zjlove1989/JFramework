@@ -394,7 +394,6 @@ TEST(ArchitectureTest, CommandChaining)
 	EXPECT_EQ(2, ExtendedTestCommand::executionCount);
 }
 
-
 TEST(ArchitectureTest, QueryWithParameters)
 {
 	auto arch = std::make_shared<TestArchitecture>();
@@ -448,7 +447,6 @@ TEST(ArchitectureTest, CommandInCommand)
 			this->SendCommand<TestCommand>();
 		}
 	public:
-		
 	};
 
 	executionCount = 0;
@@ -648,9 +646,9 @@ TEST(BindablePropertyTest, MemoryManagement)
 	// 使用weak_ptr检测内存泄漏
 	std::weak_ptr<bool> weakObserver = observer;
 	{
-		auto unregister = prop->Register([observer](int) 
-			{ 
-			*observer = true; 
+		auto unregister = prop->Register([observer](int)
+			{
+				*observer = true;
 			});
 		prop->SetValue(1);
 		prop->UnRegister(unregister->GetId());

@@ -678,7 +678,6 @@ namespace JFramework
 				}
 				catch (const std::exception&)
 				{
-
 				}
 			}
 		}
