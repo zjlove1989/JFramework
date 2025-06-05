@@ -335,6 +335,16 @@ namespace JFramework
 			}
 			arch->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
 		}
+
+		void SendCommand(std::unique_ptr<ICommand> command)
+		{
+			auto arch = GetArchitecture();
+			if (!arch)
+			{
+				throw ArchitectureNotSetException(typeid(command).name());
+			}
+			arch->SendCommand(std::move(command));
+		}
 	};
 
 	/// @brief ·¢ËÍCommandÄÜÁ¦

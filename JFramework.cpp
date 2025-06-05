@@ -228,43 +228,53 @@ TEST(BindablePropertyTest, RegisterWithInitValue)
 // 能力接口测试
 TEST(CapabilityTest, CanGetModel)
 {
-	auto arch = std::make_shared<TestArchitecture>();
-	arch->InitArchitecture();
-
 	class TestComponent : public ICanGetModel
 	{
 	public:
+		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
+
 		std::shared_ptr<IArchitecture> GetArchitecture() const override
 		{
-			auto arch = std::make_shared<TestArchitecture>();
-			arch->InitArchitecture();
-			return arch;
+			return mArch;
 		}
+
+	private:
+		std::shared_ptr<IArchitecture> mArch;
 	};
 
-	TestComponent component;
-	EXPECT_THROW(component.GetModel<TestModel>(), ArchitectureNotSetException);
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+	TestComponent component(arch);
+
+	auto model = component.GetModel<TestModel>();
+	EXPECT_NE(nullptr, model);
 }
 
 TEST(CapabilityTest, CanSendCommand)
 {
-	auto arch = std::make_shared<TestArchitecture>();
-	arch->InitArchitecture();
-
+	// 将 arch 提升为静态变量或通过其他方式传递
 	class TestComponent : public ICanSendCommand
 	{
 	public:
-		bool commandSent = false;
+		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
+
 		std::shared_ptr<IArchitecture> GetArchitecture() const override
 		{
-			auto arch = std::make_shared<TestArchitecture>();
-			arch->InitArchitecture();
-			return arch;
+			return mArch;
 		}
+
+	private:
+		std::shared_ptr<IArchitecture> mArch;
 	};
 
-	TestComponent component;
-	EXPECT_THROW(component.SendCommand<TestCommand>(), ArchitectureNotSetException);
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+	TestComponent component(arch);
+
+	auto cmd = std::make_unique<TestCommand>();
+	auto cmdPtr = cmd.get();
+	component.SendCommand(std::move(cmd));
+	EXPECT_TRUE(cmdPtr->executed);
 }
 
 
