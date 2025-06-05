@@ -881,9 +881,9 @@ namespace JFramework {
 			return mArchitecture;
 		}
 
-		virtual void Init() final { this->OnInit(); }
+		virtual void Init()  final { this->OnInit(); }
 
-		void Deinit() override { this->OnDeinit(); }
+		void Deinit() final { this->OnDeinit(); }
 
 	private:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
@@ -906,7 +906,7 @@ namespace JFramework {
 
 		virtual void Init() final { this->OnInit(); }
 
-		void Deinit() override { OnDeinit(); }
+		void Deinit() final { OnDeinit(); }
 
 		void HandleEvent(std::shared_ptr<IEvent> event) final { OnEvent(event); }
 
@@ -939,7 +939,7 @@ namespace JFramework {
 			return mArchitecture;
 		}
 
-		TResult Do() override { return OnDo(); }
+		TResult Do() final { return OnDo(); }
 
 	public:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
