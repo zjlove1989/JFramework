@@ -1,8 +1,11 @@
+<img src="https://github.com/zjlove1989/JFramework/blob/master/LOGO.png" alt="LOGO" width="300" height="300" />
+
 # JFramework C++ 框架
 
-作者：zjlove1989
-邮箱：2517917168@qq.com
-QQ群：1048859619
+## 作者：zjlove1989
+## 邮箱：2517917168@qq.com
+## QQ群：1048859619
+
 
 JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、事件总线、命令查询分离（CQRS）等核心功能，适用于构建模块化、可扩展的应用程序。框架设计遵循面向接口编程原则，支持组件的动态注册与管理，并通过单元测试确保稳定性。
 
