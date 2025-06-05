@@ -593,16 +593,20 @@ namespace JFramework {
 		}
 
 		void SendEvent(std::shared_ptr<IEvent> event) {
-			std::lock_guard<std::mutex> lock(mMutex);
-			auto it = mSubscribers.find(typeid(*event));
-			if (it != mSubscribers.end()) {
-				auto subscribers = it->second;
-				for (auto& handler : subscribers) {
-					try {
-						handler->HandleEvent(event);
-					}
-					catch (const std::exception&) {
-					}
+			std::vector<ICanHandleEvent*> subscribers;
+			{
+				std::lock_guard<std::mutex> lock(mMutex);
+				auto it = mSubscribers.find(typeid(*event));
+				if (it != mSubscribers.end()) {
+					subscribers = it->second;
+				}
+			}
+
+			for (auto& handler : subscribers) {
+				try {
+					handler->HandleEvent(event);
+				}
+				catch (const std::exception&) {
 				}
 			}
 		}
@@ -853,14 +857,14 @@ namespace JFramework {
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final {
 			return mArchitecture;
 		}
 
-		void Execute() override { this->OnExecute(); }
+		void Execute() final { this->OnExecute(); }
 
 	public:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
 			mArchitecture = architecture;
 		}
 
@@ -873,16 +877,16 @@ namespace JFramework {
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final {
 			return mArchitecture;
 		}
 
-		virtual void Init() override { this->OnInit(); }
+		virtual void Init() final { this->OnInit(); }
 
 		void Deinit() override { this->OnDeinit(); }
 
 	private:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
 			mArchitecture = architecture;
 		}
 
@@ -896,18 +900,18 @@ namespace JFramework {
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final {
 			return mArchitecture;
 		}
 
-		virtual void Init() override { this->OnInit(); }
+		virtual void Init() final { this->OnInit(); }
 
 		void Deinit() override { OnDeinit(); }
 
-		void HandleEvent(std::shared_ptr<IEvent> event) override { OnEvent(event); }
+		void HandleEvent(std::shared_ptr<IEvent> event) final { OnEvent(event); }
 
 	private:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
 			mArchitecture = architecture;
 		}
 
@@ -919,7 +923,7 @@ namespace JFramework {
 
 	class AbstractController : public IController {
 	private:
-		void HandleEvent(std::shared_ptr<IEvent> event) override { OnEvent(event); }
+		void HandleEvent(std::shared_ptr<IEvent> event) final { OnEvent(event); }
 
 	protected:
 		virtual void OnEvent(std::shared_ptr<IEvent> event) = 0;
@@ -931,14 +935,14 @@ namespace JFramework {
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final {
 			return mArchitecture;
 		}
 
 		TResult Do() override { return OnDo(); }
 
 	public:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
 			mArchitecture = architecture;
 		}
 
