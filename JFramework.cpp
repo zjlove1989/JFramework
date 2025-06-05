@@ -7,6 +7,13 @@
 #include <chrono>
 using namespace JFramework;
 
+class ExtendedTestEvent : public IEvent
+{
+public:
+	std::string GetEventType() const override { return "ExtendedTestEvent"; }
+	int eventData = 0;
+};
+
 // 测试用的组件类
 class TestModel : public AbstractModel
 {
@@ -81,22 +88,27 @@ public:
 class ExtendedTestSystem : public AbstractSystem
 {
 protected:
-	void OnInit() override { initialized = true; }
-	void OnDeinit() override { initialized = false; }
+	void OnInit() override
+	{
+		initialized = true;
+		this->RegisterEvent<ExtendedTestEvent>(this);
+	}
+	void OnDeinit() override
+	{
+		initialized = false;
+		this->UnRegisterEvent<ExtendedTestEvent>(this);
+	}
 	void OnEvent(std::shared_ptr<IEvent> event) override
 	{
-		lastEvent = event;
+		auto testEvent = std::dynamic_pointer_cast<ExtendedTestEvent>(event);
+		if (testEvent)
+		{
+			lastEvent = event;
+		}
 	}
 public:
 	bool initialized = false;
-	std::shared_ptr<IEvent> lastEvent;
-};
-
-class ExtendedTestEvent : public IEvent
-{
-public:
-	std::string GetEventType() const override { return "ExtendedTestEvent"; }
-	int eventData = 0;
+	std::shared_ptr<IEvent> lastEvent = nullptr;
 };
 
 class ExtendedTestCommand : public AbstractCommand
@@ -404,7 +416,6 @@ TEST(BindablePropertyTest, ThreadSafety)
 	std::atomic<int> notificationCount{ 0 };
 	std::vector<std::thread> threads;
 
-
 	// 创建多个线程同时修改和监听属性
 	for (int i = 0; i < 10; ++i)
 	{
@@ -422,7 +433,6 @@ TEST(BindablePropertyTest, ThreadSafety)
 	{
 		t.join();
 	}
-
 
 	prop.SetValue(prop.GetValue() + 1);
 
@@ -526,7 +536,6 @@ TEST(ExceptionTest, ComponentNotRegistered)
 
 TEST(IntegrationTest, ComponentInteraction)
 {
-
 	// 注册事件处理器
 	class EventHandler : public AbstractController
 	{
@@ -557,7 +566,6 @@ TEST(IntegrationTest, ComponentInteraction)
 	// 注册自定义系统
 	auto system = std::make_shared<ExtendedTestSystem>();
 	arch->RegisterSystem<ExtendedTestSystem>(system);
-
 
 	auto handler = std::make_shared<EventHandler>(arch);
 	arch->RegisterEvent<ExtendedTestEvent>(handler.get());
