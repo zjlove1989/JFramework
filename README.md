@@ -1,5 +1,9 @@
 # JFramework C++ 框架
 
+作者：zjlove1989
+邮箱：2517917168@qq.com
+QQ群：1048859619
+
 JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、事件总线、命令查询分离（CQRS）等核心功能，适用于构建模块化、可扩展的应用程序。框架设计遵循面向接口编程原则，支持组件的动态注册与管理，并通过单元测试确保稳定性。
 
 ## 核心特性
@@ -107,7 +111,16 @@ int main() {
 # 运行测试（需安装Google Test）
 ```bash
 cd test
-g++ -std=c++17 JFramework.cpp -lgtest -lgtest_main -pthread
+g++ -std=c++14 JFramework.cpp -lgtest -lgtest_main -pthread
 ./a.out
 ```
 
+## 贡献指南
+提交代码前请确保单元测试通过
+新增功能需补充对应的头文件与实现
+遵循 C++14 标准与代码规范
+提交 PR 时需注明功能描述与测试覆盖情况
+
+## 许可证
+本框架采用 MIT 许可证，详情见 LICENSE 文件。
+项目地址：https://github.com/zjlove1989/JFramework
