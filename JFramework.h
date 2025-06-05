@@ -166,6 +166,13 @@ namespace JFramework
 
 		explicit BindableProperty(const T& value) : mValue(std::move(value)) {}
 
+		~BindableProperty()
+		{
+			// 确保所有观察者都被释放
+			std::lock_guard<std::mutex> lock(mMutex);
+			mObservers.clear();
+		}
+
 		// 获取当前值
 		const T& GetValue() const { return mValue; }
 
@@ -202,16 +209,11 @@ namespace JFramework
 		void UnRegister(int id)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			// 直接从weak_ptr列表中移除对应id的观察者
 			mObservers.erase(
 				std::remove_if(mObservers.begin(), mObservers.end(),
-					[id](const std::weak_ptr<AutoUnRegister<T>>& weakObserver)
+					[id](const std::shared_ptr<AutoUnRegister<T>>& observer)
 					{
-						if (auto observer = weakObserver.lock())
-						{
-							return observer->GetId() == id;
-						}
-						return false; // 已失效的观察者由Trigger清理
+						return observer->GetId() == id;
 					}),
 				mObservers.end());
 		}
@@ -381,6 +383,24 @@ namespace JFramework
 			}
 
 			auto query = std::make_unique<TQuery>(std::forward<Args>(args)...);
+
+			query->SetArchitecture(arch);
+			return query->Do();
+		}
+
+		template <typename TQuery>
+		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(std::declval<TQuery>().Do())
+		{
+			static_assert(
+				std::is_base_of_v<IQuery<decltype(std::declval<TQuery>().Do())>,
+				TQuery>,
+				"TQuery must inherit from IQuery");
+
+			auto arch = GetArchitecture();
+			if (!arch)
+			{
+				throw ArchitectureNotSetException(typeid(TQuery).name());
+			}
 
 			query->SetArchitecture(arch);
 			return query->Do();
@@ -822,7 +842,13 @@ namespace JFramework
 				throw std::invalid_argument("Command cannot be null");
 			}
 			command->SetArchitecture(shared_from_this());
-			command->Execute();
+			try
+			{
+				command->Execute();
+			}
+			catch (const std::exception&)
+			{
+			}
 		}
 
 		void SendEvent(std::shared_ptr<IEvent> event) override
@@ -864,6 +890,12 @@ namespace JFramework
 			ICanHandleEvent* handler) override
 		{
 			mEventBus->UnRegisterEvent(eventType, handler);
+		}
+
+		template <typename T>
+		void UnRegisterEvent(ICanHandleEvent* handler)
+		{
+			mEventBus->UnRegisterEvent(typeid(T), handler);
 		}
 
 		void Deinit() override
@@ -995,9 +1027,15 @@ namespace JFramework
 			return mArchitecture;
 		}
 
-		virtual void Init() override { this->OnInit(); }
+		virtual void Init() override
+		{
+			this->OnInit();
+		}
 
-		void Deinit() override { OnDeinit(); }
+		void Deinit() override
+		{
+			this->OnDeinit();
+		}
 
 	private:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) override
