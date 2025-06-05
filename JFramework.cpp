@@ -178,6 +178,88 @@ TEST(ArchitectureTest, EventHandling)
 	EXPECT_TRUE(handler.eventHandled);
 }
 
+// BindableProperty 测试
+TEST(BindablePropertyTest, ValueChangeNotification)
+{
+	BindableProperty<int> prop(10);
+	bool notified = false;
+
+	auto unregister = prop.Register([&](int val)
+		{
+			notified = true;
+			EXPECT_EQ(20, val);
+		});
+
+	prop.SetValue(20);
+	EXPECT_TRUE(notified);
+}
+
+TEST(BindablePropertyTest, Unregister)
+{
+	BindableProperty<int> prop(10);
+	bool notified = false;
+
+	auto unregister = prop.Register([&](int) { notified = true; });
+	prop.SetValue(20);
+	EXPECT_TRUE(notified);
+
+	notified = false;
+	prop.SetValue(30);
+	EXPECT_FALSE(notified);
+}
+
+TEST(BindablePropertyTest, RegisterWithInitValue)
+{
+	BindableProperty<int> prop(10);
+	bool notified = false;
+
+	auto unregister = prop.RegisterWithInitValue([&](int val)
+		{
+			notified = true;
+			EXPECT_EQ(10, val);
+		});
+
+	EXPECT_TRUE(notified);
+}
+
+// 能力接口测试
+TEST(CapabilityTest, CanGetModel)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	class TestComponent : public ICanGetModel
+	{
+	public:
+		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		{
+			return std::make_shared<TestArchitecture>();
+		}
+	};
+
+	TestComponent component;
+	EXPECT_THROW(component.GetModel<TestModel>(), ArchitectureNotSetException);
+}
+
+TEST(CapabilityTest, CanSendCommand)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	class TestComponent : public ICanSendCommand
+	{
+	public:
+		bool commandSent = false;
+		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		{
+			return std::make_shared<TestArchitecture>();
+		}
+	};
+
+	TestComponent component;
+	EXPECT_THROW(component.SendCommand<TestCommand>(), ArchitectureNotSetException);
+}
+
 
 int main(int argc, char** argv)
 {
