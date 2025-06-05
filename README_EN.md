@@ -1,5 +1,7 @@
 <img src="https://github.com/zjlove1989/JFramework/blob/master/LOGO.png" alt="LOGO" width="300" height="300" />
 
+[中文](https://github.com/zam1024t/LocalizedMenu/blob/master/readme/README.md)
+
 # JFramework C++ Framework
 
 ## Author：zjlove1989
