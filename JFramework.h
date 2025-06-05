@@ -615,7 +615,6 @@ namespace JFramework {
 				auto handlerIt = std::find(handlers.begin(), handlers.end(), handler);
 				if (handlerIt != handlers.end()) {
 					handlers.erase(handlerIt);
-
 					if (handlers.empty()) {
 						mSubscribers.erase(it);
 					}
