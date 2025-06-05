@@ -530,23 +530,23 @@ namespace JFramework {
 		template <typename T, typename TBase>
 		void Register(std::type_index typeId, std::shared_ptr<TBase> component) {
 			static_assert(std::is_base_of_v<TBase, T>, "T must inherit from TBase");
-			auto& container = GetContainer<TBase>();
-			std::lock_guard<std::mutex> lock(GetMutex<TBase>());
+			auto& container = GetContainer(ContainerTypeTag<TBase>{});
+			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			container[typeId] = std::static_pointer_cast<TBase>(component);
 		}
 
 		template <typename TBase>
 		std::shared_ptr<TBase> Get(std::type_index typeId) {
-			auto& container = GetContainer<TBase>();
-			std::lock_guard<std::mutex> lock(GetMutex<TBase>());
+			auto& container = GetContainer(ContainerTypeTag<TBase>{});
+			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			auto it = container.find(typeId);
 			return it != container.end() ? it->second : nullptr;
 		}
 
 		template <typename TBase>
 		std::vector<std::shared_ptr<TBase>> GetAll() {
-			auto& container = GetContainer<TBase>();
-			std::lock_guard<std::mutex> lock(GetMutex<TBase>());
+			auto& container = GetContainer(ContainerTypeTag<TBase>{});
+			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			std::vector<std::shared_ptr<TBase>> result;
 			for (auto& pair : container) {
 				result.push_back(pair.second);
@@ -564,45 +564,16 @@ namespace JFramework {
 		}
 
 	private:
-		template <typename T>
-		std::unordered_map<std::type_index, std::shared_ptr<T>>& GetContainer();
 
-		template <typename T>
-		std::mutex& GetMutex();
+		template <typename> struct ContainerTypeTag {};
+		auto& GetContainer(ContainerTypeTag<IModel>) { return mModels; }
+		auto& GetContainer(ContainerTypeTag<ISystem>) { return mSystems; }
+		auto& GetContainer(ContainerTypeTag<IUtility>) { return mUtilitys; }
 
-		// 显式特化声明
-		template <>
-		std::unordered_map<std::type_index, std::shared_ptr<IModel>>&
-			GetContainer<IModel>() {
-			return mModels;
-		}
-
-		template <>
-		std::unordered_map<std::type_index, std::shared_ptr<ISystem>>&
-			GetContainer<ISystem>() {
-			return mSystems;
-		}
-
-		template <>
-		std::unordered_map<std::type_index, std::shared_ptr<IUtility>>&
-			GetContainer<IUtility>() {
-			return mUtilitys;
-		}
-
-		template <>
-		std::mutex& GetMutex<IModel>() {
-			return mModelMutex;
-		}
-
-		template <>
-		std::mutex& GetMutex<ISystem>() {
-			return mSystemMutex;
-		}
-
-		template <>
-		std::mutex& GetMutex<IUtility>() {
-			return mUtilityMutex;
-		}
+		template <typename> struct MutexTypeTag {};
+		auto& GetMutex(MutexTypeTag<IModel>) { return mModelMutex; }
+		auto& GetMutex(MutexTypeTag<ISystem>) { return mSystemMutex; }
+		auto& GetMutex(MutexTypeTag<IUtility>) { return mUtilityMutex; }
 
 		std::unordered_map<std::type_index, std::shared_ptr<IModel>> mModels;
 		std::unordered_map<std::type_index, std::shared_ptr<ISystem>> mSystems;
