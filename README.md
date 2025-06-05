@@ -28,3 +28,86 @@ JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、�
 - 支持组件的初始化（Init）与反初始化（Deinit）
 - 架构级生命周期控制，确保组件按顺序初始化 / 销毁
 - 支持延迟注册组件，初始化后仍可动态添加
+
+## 目录结构
+
+    JFramework/
+    ├─ include/                # 头文件
+    │  └─ JFramework.h         # 核心框架定义
+    ├─ src/                    # 源文件（仅包含测试代码）
+    │  └─ JFramework.cpp       # 测试入口
+    └─ test/                   # 单元测试
+       ├─ IOCContainerTest     # IOC容器测试
+       ├─ EventBusTest         # 事件总线测试
+       ├─ ArchitectureTest     # 架构测试
+       └─ ...                  # 其他组件测试
+
+## 使用示例
+
+### 1. 定义组件
+```cpp
+// 模型类
+class TestModel : public JFramework::AbstractModel {
+protected:
+    void OnInit() override { /* 初始化逻辑 */ }
+    void OnDeinit() override { /* 反初始化逻辑 */ }
+};
+
+// 系统类
+class TestSystem : public JFramework::AbstractSystem {
+protected:
+    void OnInit() override { /* 初始化逻辑 */ }
+    void OnEvent(std::shared_ptr<JFramework::IEvent> event) override { /* 事件处理 */ }
+};
+
+// 命令类
+class TestCommand : public JFramework::AbstractCommand {
+protected:
+    void OnExecute() override { /* 命令逻辑 */ }
+};
+```
+### 2. 注册组件到架构
+```cpp
+class AppArchitecture : public JFramework::Architecture {
+protected:
+    void Init() override {
+        // 注册模型
+        RegisterModel<TestModel>(std::make_shared<TestModel>());
+        // 注册系统
+        RegisterSystem<TestSystem>(std::make_shared<TestSystem>());
+    }
+};
+```
+### 3. 使用组件
+```cpp
+int main() {
+    auto arch = std::make_shared<AppArchitecture>();
+    arch->InitArchitecture(); // 初始化架构
+
+    // 获取模型
+    auto model = arch->GetModel<TestModel>();
+
+    // 发送命令
+    arch->SendCommand(std::make_unique<TestCommand>());
+
+    // 发送事件
+    arch->SendEvent(std::make_shared<JFramework::TestEvent>());
+
+    return 0;
+}
+```
+## 单元测试
+### 框架包含完整的单元测试，覆盖核心功能的各个方面：
+- IOC 容器测试：验证组件注册、获取、清除的正确性
+- 事件总线测试：验证事件发布 - 订阅、多处理器、线程安全
+- 架构测试：验证组件生命周期、命令 / 查询执行、事件处理
+- 性能测试：验证高并发场景下的吞吐量与响应时间
+- 内存测试：验证组件与观察者的内存释放逻辑
+
+# 运行测试（需安装Google Test）
+```bash
+cd test
+g++ -std=c++17 JFramework.cpp -lgtest -lgtest_main -pthread
+./a.out
+```
+
