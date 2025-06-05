@@ -828,6 +828,12 @@ namespace JFramework
 			mEventBus->SendEvent(event);
 		}
 
+		template <typename T, typename... Args>
+		void SendEvent(Args&&... args)
+		{
+			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
+		}
+
 		template <typename TQuery>
 		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do())
 		{
