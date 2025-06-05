@@ -199,9 +199,12 @@ TEST(BindablePropertyTest, Unregister)
 	BindableProperty<int> prop(10);
 	bool notified = false;
 
-	auto unregister = prop.Register([&](int) { notified = true; });
-	prop.SetValue(20);
-	EXPECT_TRUE(notified);
+	{
+		auto unregister = prop.Register([&](int) { notified = true; });
+		prop.SetValue(20);
+		EXPECT_TRUE(notified);
+		prop.UnRegister(unregister->GetId());
+	}
 
 	notified = false;
 	prop.SetValue(30);
@@ -233,7 +236,9 @@ TEST(CapabilityTest, CanGetModel)
 	public:
 		std::shared_ptr<IArchitecture> GetArchitecture() const override
 		{
-			return std::make_shared<TestArchitecture>();
+			auto arch = std::make_shared<TestArchitecture>();
+			arch->InitArchitecture();
+			return arch;
 		}
 	};
 
@@ -252,7 +257,9 @@ TEST(CapabilityTest, CanSendCommand)
 		bool commandSent = false;
 		std::shared_ptr<IArchitecture> GetArchitecture() const override
 		{
-			return std::make_shared<TestArchitecture>();
+			auto arch = std::make_shared<TestArchitecture>();
+			arch->InitArchitecture();
+			return arch;
 		}
 	};
 

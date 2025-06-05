@@ -124,6 +124,9 @@ namespace JFramework
 		{
 			unRegisterTrigger->AddUnRegister(std::unique_ptr<IUnRegister>(this));
 		}
+		int GetId() const { return mId; }
+	protected:
+		int mId;
 	};
 
 	// 具体注销实现
@@ -133,18 +136,16 @@ namespace JFramework
 	public:
 		UnRegisterImpl(int id, BindableProperty<T>* property,
 			std::function<void(T)> callback)
-			: mProperty(property), mCallback(callback), mId(id)
+			: mProperty(property), mCallback(callback)
 		{
+			this->mId = id;
 		}
 
 		void UnRegister() override { mProperty->UnRegister(this->mId); }
 
 		void Invoke(T value) { mCallback(std::move(value)); }
 
-		int GetId() const { return mId; }
-
 	private:
-		int mId;
 		BindableProperty<T>* mProperty;
 		std::function<void(T)> mCallback;
 	};
@@ -877,6 +878,10 @@ namespace JFramework
 			mContainer = std::make_unique<IOCContainer>();
 			mEventBus = std::make_unique<EventBus>();
 			mInitialized.store(false);
+		}
+
+		virtual ~Architecture()
+		{
 		}
 
 		virtual void Init() = 0;
