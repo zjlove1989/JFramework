@@ -593,20 +593,16 @@ namespace JFramework {
 		}
 
 		void SendEvent(std::shared_ptr<IEvent> event) {
-			std::vector<ICanHandleEvent*> subscribers;
-			{
-				std::lock_guard<std::mutex> lock(mMutex);
-				auto it = mSubscribers.find(typeid(*event));
-				if (it != mSubscribers.end()) {
-					subscribers = it->second;
-				}
-			}
-
-			for (auto& handler : subscribers) {
-				try {
-					handler->HandleEvent(event);
-				}
-				catch (const std::exception&) {
+			std::lock_guard<std::mutex> lock(mMutex);
+			auto it = mSubscribers.find(typeid(*event));
+			if (it != mSubscribers.end()) {
+				auto subscribers = it->second;
+				for (auto& handler : subscribers) {
+					try {
+						handler->HandleEvent(event);
+					}
+					catch (const std::exception&) {
+					}
 				}
 			}
 		}
