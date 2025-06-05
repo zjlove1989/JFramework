@@ -31,6 +31,8 @@
 #include <mutex>
 #include <typeindex>
 #include <unordered_map>
+#include <windows.h>
+
 
 namespace JFramework
 {
@@ -693,17 +695,17 @@ namespace JFramework
 	public:
 		void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			m_subscribers[eventType].push_back(handler);
+			std::lock_guard<std::mutex> lock(mMutex);
+			mSubscribers[eventType].push_back(handler);
 		}
 
 		void SendEvent(std::shared_ptr<IEvent> event)
 		{
 			std::vector<ICanHandleEvent*> subscribers;
 			{
-				std::lock_guard<std::mutex> lock(m_mutex);
-				auto it = m_subscribers.find(typeid(*event));
-				if (it != m_subscribers.end())
+				std::lock_guard<std::mutex> lock(mMutex);
+				auto it = mSubscribers.find(typeid(*event));
+				if (it != mSubscribers.end())
 				{
 					subscribers = it->second;
 				}
@@ -723,9 +725,9 @@ namespace JFramework
 
 		void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			auto it = m_subscribers.find(eventType);
-			if (it != m_subscribers.end())
+			std::lock_guard<std::mutex> lock(mMutex);
+			auto it = mSubscribers.find(eventType);
+			if (it != mSubscribers.end())
 			{
 				auto& handlers = it->second;
 				auto handlerIt = std::find(handlers.begin(), handlers.end(), handler);
@@ -735,7 +737,7 @@ namespace JFramework
 
 					if (handlers.empty())
 					{
-						m_subscribers.erase(it);
+						mSubscribers.erase(it);
 					}
 				}
 			}
@@ -743,14 +745,14 @@ namespace JFramework
 
 		void Clear()
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			m_subscribers.clear();
+			std::lock_guard<std::mutex> lock(mMutex);
+			mSubscribers.clear();
 		}
 
 	private:
-		std::mutex m_mutex;
+		std::mutex mMutex;
 		std::unordered_map<std::type_index, std::vector<ICanHandleEvent*>>
-			m_subscribers;
+			mSubscribers;
 	};
 
 	/// @brief 架构基础实现
@@ -975,6 +977,7 @@ namespace JFramework
 
 		virtual ~Architecture()
 		{
+			OutputDebugString(L"~Architecture successfully\n");
 		}
 
 		virtual void Init() = 0;
