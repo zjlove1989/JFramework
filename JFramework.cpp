@@ -4,8 +4,8 @@
 #include <iostream>
 #include <gtest/gtest.h>
 #include "JFramework.h"
+#include <chrono>
 using namespace JFramework;
-
 
 // 测试用的组件类
 class TestModel : public AbstractModel
@@ -59,18 +59,19 @@ public:
 		lastEvent = event;
 		eventHandled = true;
 	}
-
 };
 
 // 扩展的测试组件
 class ExtendedTestModel : public AbstractModel
 {
 protected:
-	void OnInit() override { 
-		initCount++; 
+	void OnInit() override
+	{
+		initCount++;
 	}
-	void OnDeinit() override { 
-		deinitCount++; 
+	void OnDeinit() override
+	{
+		deinitCount++;
 	}
 public:
 	int initCount = 0;
@@ -146,8 +147,8 @@ TEST(IOCContainerTest, GetAll)
 	auto model1 = std::make_shared<TestModel>();
 	auto model2 = std::make_shared<TestModel>();
 
-	container.Register<TestModel,IModel>(typeid(TestModel), model1);
-	container.Register<TestModel,IModel>(typeid(TestModel), model2);
+	container.Register<TestModel, IModel>(typeid(TestModel), model1);
+	container.Register<TestModel, IModel>(typeid(TestModel), model2);
 
 	auto allModels = container.GetAll<IModel>();
 	EXPECT_EQ(1, allModels.size());
@@ -302,8 +303,8 @@ TEST(ArchitectureTest, EventHandling)
 	arch->InitArchitecture();
 
 	TestEventHandler handler;
-	arch->RegisterEvent(typeid(TestEvent), & handler);
-	
+	arch->RegisterEvent(typeid(TestEvent), &handler);
+
 	auto event = std::make_shared<TestEvent>();
 	arch->SendEvent(event);
 
@@ -397,6 +398,50 @@ TEST(BindablePropertyTest, RegisterWithInitValue)
 	EXPECT_TRUE(notified);
 }
 
+TEST(BindablePropertyTest, ThreadSafety)
+{
+	BindableProperty<int> prop(0);
+	std::atomic<int> notificationCount{ 0 };
+	std::vector<std::thread> threads;
+
+
+	// 创建多个线程同时修改和监听属性
+	for (int i = 0; i < 10; ++i)
+	{
+		threads.emplace_back([&]
+			{
+				auto unregister = prop.Register([&](int)
+					{
+						notificationCount++;
+					});
+				prop.SetValue(prop.GetValue() + 1);
+			});
+	}
+
+	// 等待所有线程完成
+	for (auto& t : threads)
+	{
+		t.join();
+	}
+
+	// 验证线程安全
+	EXPECT_LE(10, notificationCount.load());
+}
+
+TEST(BindablePropertyTest, ValueSemantics)
+{
+	BindableProperty<std::string> prop("initial");
+
+	// 测试字符串移动语义
+	std::string longStr(1000, 'a');
+	prop.SetValue(longStr);
+	EXPECT_EQ(longStr, prop.GetValue());
+
+	// 测试右值
+	prop.SetValue(std::string(1000, 'b'));
+	EXPECT_EQ(std::string(1000, 'b'), prop.GetValue());
+}
+
 // 能力接口测试
 TEST(CapabilityTest, CanGetModel)
 {
@@ -449,6 +494,103 @@ TEST(CapabilityTest, CanSendCommand)
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
+TEST(ExceptionTest, ArchitectureNotSet)
+{
+	class TestComponent : public ICanSendCommand
+	{
+	public:
+		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		{
+			return nullptr;
+		}
+	};
+
+	TestComponent component;
+
+	// 测试未设置架构时的异常
+	EXPECT_THROW(component.SendCommand<TestCommand>(), ArchitectureNotSetException);
+	EXPECT_THROW(component.SendCommand(std::make_unique<TestCommand>()), ArchitectureNotSetException);
+}
+
+TEST(ExceptionTest, ComponentNotRegistered)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	// 测试获取未注册组件时的异常
+	EXPECT_THROW(arch->GetSystem<ExtendedTestSystem>(), ComponentNotRegisteredException);
+	EXPECT_THROW(arch->GetModel<ExtendedTestModel>(), ComponentNotRegisteredException);
+}
+
+TEST(IntegrationTest, ComponentInteraction)
+{
+
+	// 注册事件处理器
+	class EventHandler : public AbstractController
+	{
+	protected:
+		void OnEvent(std::shared_ptr<IEvent> event) override
+		{
+			auto testEvent = std::dynamic_pointer_cast<ExtendedTestEvent>(event);
+			if (testEvent)
+			{
+				eventReceived = true;
+			}
+		}
+
+		std::shared_ptr<IArchitecture> GetArchitecture() const override
+		{
+			return mArch;
+		}
+
+	public:
+		bool eventReceived = false;
+		EventHandler(std::shared_ptr<IArchitecture> arch) :mArch(arch) {}
+	private:
+		std::shared_ptr<IArchitecture> mArch;
+	};
+
+	auto arch = std::make_shared<TestArchitecture>();
+
+	// 注册自定义系统
+	auto system = std::make_shared<ExtendedTestSystem>();
+	arch->RegisterSystem<ExtendedTestSystem>(system);
+
+
+	auto handler = std::make_shared<EventHandler>(arch);
+	arch->RegisterEvent<ExtendedTestEvent>(handler.get());
+
+	// 初始化架构
+	arch->InitArchitecture();
+
+	// 发送事件
+	auto event = std::make_shared<ExtendedTestEvent>();
+	arch->SendEvent(event);
+
+	// 验证事件处理
+	EXPECT_TRUE(handler->eventReceived);
+	EXPECT_NE(nullptr, system->lastEvent);
+}
+
+TEST(PerformanceTest, CommandThroughput)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	const int iterations = 10000;
+	auto start = std::chrono::high_resolution_clock::now();
+
+	for (int i = 0; i < iterations; ++i)
+	{
+		arch->SendCommand(std::make_unique<TestCommand>());
+	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+	std::cout << "Sent " << iterations << " commands in " << duration.count() << "ms\n";
+	EXPECT_TRUE(duration.count() < 100); // 确保性能在合理范围内
+}
 
 int main(int argc, char** argv)
 {
