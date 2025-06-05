@@ -363,6 +363,29 @@ TEST(ArchitectureTest, CommandChaining)
 	EXPECT_EQ(2, ExtendedTestCommand::executionCount);
 }
 
+
+TEST(ArchitectureTest, QueryWithParameters)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	auto query = std::make_unique<ExtendedTestQuery>();
+	query->queryParam = 123;
+	std::string result = arch->SendQuery(std::move(query));
+
+	EXPECT_EQ("QueryResult:123", result);
+}
+
+TEST(ArchitectureTest, UtilityUsage)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	auto utility = arch->GetUtility(typeid(TestUtility));
+	EXPECT_NE(nullptr, utility);
+
+	// 测试utility的具体功能
+}
 // BindableProperty 测试
 TEST(BindablePropertyTest, ValueChangeNotification)
 {
