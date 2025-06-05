@@ -230,10 +230,10 @@ namespace JFramework
 	{
 	public:
 		bool IsInitialized() const { return mInitialized.load(); }
+		void SetInitialized(bool initialized) { mInitialized = initialized; }
 		virtual ~ICanInit() = default;
 		virtual void Init() = 0;
 		virtual void Deinit() = 0;
-
 	protected:
 		std::atomic<bool> mInitialized{ false };
 	};
@@ -838,22 +838,14 @@ namespace JFramework
 
 			this->OnDeinit();
 
-			auto deinitComponent = [](auto& component)
-				{
-					if (component->IsInitialized())
-					{
-						component->Deinit();
-					}
-				};
-
 			for (auto& model : mContainer->GetAll<IModel>())
 			{
-				deinitComponent(model);
+				UnInitializeComponent(model);
 			}
 
 			for (auto& system : mContainer->GetAll<ISystem>())
 			{
-				deinitComponent(system);
+				UnInitializeComponent(system);
 			}
 
 			mContainer->Clear();
@@ -908,6 +900,20 @@ namespace JFramework
 			if (!component->IsInitialized())
 			{
 				component->Init();
+				component->SetInitialized(true);
+			}
+		}
+
+		template <typename TComponent>
+		void UnInitializeComponent(std::shared_ptr<TComponent> component)
+		{
+			static_assert(std::is_base_of_v<ICanInit, TComponent>,
+				"Component must implement ICanInit");
+
+			if (component->IsInitialized())
+			{
+				component->Deinit();
+				component->SetInitialized(false);
 			}
 		}
 	};

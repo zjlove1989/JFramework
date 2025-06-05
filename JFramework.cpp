@@ -52,12 +52,67 @@ protected:
 class TestEventHandler : public ICanHandleEvent
 {
 public:
+	std::shared_ptr<IEvent> lastEvent;
 	bool eventHandled = false;
 	void HandleEvent(std::shared_ptr<IEvent> event) override
 	{
+		lastEvent = event;
 		eventHandled = true;
 	}
 
+};
+
+// 扩展的测试组件
+class ExtendedTestModel : public AbstractModel
+{
+protected:
+	void OnInit() override { 
+		initCount++; 
+	}
+	void OnDeinit() override { 
+		deinitCount++; 
+	}
+public:
+	int initCount = 0;
+	int deinitCount = 0;
+};
+
+class ExtendedTestSystem : public AbstractSystem
+{
+protected:
+	void OnInit() override { initialized = true; }
+	void OnDeinit() override { initialized = false; }
+	void OnEvent(std::shared_ptr<IEvent> event) override
+	{
+		lastEvent = event;
+	}
+public:
+	bool initialized = false;
+	std::shared_ptr<IEvent> lastEvent;
+};
+
+class ExtendedTestEvent : public IEvent
+{
+public:
+	std::string GetEventType() const override { return "ExtendedTestEvent"; }
+	int eventData = 0;
+};
+
+class ExtendedTestCommand : public AbstractCommand
+{
+protected:
+	void OnExecute() override { executionCount++; }
+public:
+	static int executionCount;
+};
+int ExtendedTestCommand::executionCount = 0;
+
+class ExtendedTestQuery : public AbstractQuery<std::string>
+{
+protected:
+	std::string OnDo() override { return "QueryResult:" + std::to_string(queryParam); }
+public:
+	int queryParam = 0;
 };
 
 // 测试架构类
@@ -96,6 +151,44 @@ TEST(IOCContainerTest, GetAll)
 
 	auto allModels = container.GetAll<IModel>();
 	EXPECT_EQ(1, allModels.size());
+
+	// 测试清除功能
+	container.Clear();
+}
+
+TEST(IOCContainerTest, AdvancedRegistration)
+{
+	IOCContainer container;
+
+	// 测试多组件注册
+	auto model1 = std::make_shared<ExtendedTestModel>();
+	auto model2 = std::make_shared<ExtendedTestModel>();
+
+	container.Register<ExtendedTestModel, IModel>(typeid(ExtendedTestModel), model1);
+	container.Register<ExtendedTestModel, IModel>(typeid(ExtendedTestModel), model2);
+
+	// 测试获取所有组件
+	auto allModels = container.GetAll<IModel>();
+	EXPECT_EQ(1, allModels.size());
+
+	// 测试清除功能
+	container.Clear();
+	EXPECT_TRUE(container.GetAll<IModel>().empty());
+}
+
+TEST(IOCContainerTest, TypeSafety)
+{
+	IOCContainer container;
+
+	// 测试类型安全
+	auto system = std::make_shared<ExtendedTestSystem>();
+	container.Register<ExtendedTestSystem, ISystem>(typeid(ExtendedTestSystem), system);
+
+	// 错误类型获取应返回nullptr
+	EXPECT_EQ(nullptr, container.Get<IModel>(typeid(ExtendedTestSystem)));
+
+	// 正确类型获取
+	EXPECT_NE(nullptr, container.Get<ISystem>(typeid(ExtendedTestSystem)));
 }
 
 // EventBus 测试
@@ -122,6 +215,45 @@ TEST(EventBusTest, UnregisterEvent)
 	bus.SendEvent(event);
 
 	EXPECT_FALSE(handler.eventHandled);
+}
+
+TEST(EventBusTest, MultipleHandlers)
+{
+	EventBus bus;
+
+	// 创建多个处理器
+	TestEventHandler handler1;
+	TestEventHandler handler2;
+	auto event = std::make_shared<ExtendedTestEvent>();
+
+	// 注册多个处理器
+	bus.RegisterEvent(typeid(ExtendedTestEvent), &handler1);
+	bus.RegisterEvent(typeid(ExtendedTestEvent), &handler2);
+
+	// 发送事件
+	bus.SendEvent(event);
+
+	// 验证所有处理器都收到事件
+	EXPECT_TRUE(handler1.eventHandled);
+	EXPECT_TRUE(handler2.eventHandled);
+}
+
+TEST(EventBusTest, EventDataIntegrity)
+{
+	EventBus bus;
+	TestEventHandler handler;
+
+	// 创建带数据的事件
+	auto event = std::make_shared<ExtendedTestEvent>();
+	event->eventData = 42;
+
+	bus.RegisterEvent(typeid(ExtendedTestEvent), &handler);
+	bus.SendEvent(event);
+
+	// 验证事件数据完整性
+	auto receivedEvent = std::dynamic_pointer_cast<ExtendedTestEvent>(handler.lastEvent);
+	EXPECT_NE(nullptr, receivedEvent);
+	EXPECT_EQ(42, receivedEvent->eventData);
 }
 
 // Architecture 测试
@@ -176,6 +308,46 @@ TEST(ArchitectureTest, EventHandling)
 	arch->SendEvent(event);
 
 	EXPECT_TRUE(handler.eventHandled);
+}
+
+TEST(ArchitectureTest, ComponentLifecycle)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+
+	// 注册自定义组件
+	auto model = std::make_shared<ExtendedTestModel>();
+	arch->RegisterModel<ExtendedTestModel>(model);
+
+	// 初始化前验证
+	EXPECT_EQ(0, model->initCount);
+
+	// 初始化架构
+	arch->InitArchitecture();
+
+	// 验证初始化
+	EXPECT_EQ(1, model->initCount);
+
+	// 反初始化
+	arch->Deinit();
+
+	// 验证反初始化
+	EXPECT_EQ(1, model->deinitCount);
+}
+
+TEST(ArchitectureTest, CommandChaining)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	// 重置静态计数器
+	ExtendedTestCommand::executionCount = 0;
+
+	// 发送多个命令
+	arch->SendCommand(std::make_unique<ExtendedTestCommand>());
+	arch->SendCommand(std::make_unique<ExtendedTestCommand>());
+
+	// 验证命令执行次数
+	EXPECT_EQ(2, ExtendedTestCommand::executionCount);
 }
 
 // BindableProperty 测试
