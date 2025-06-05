@@ -118,16 +118,15 @@ namespace JFramework
 	};
 
 	template <typename T>
-	class AutoUnRegister : public IUnRegister, 
+	class AutoUnRegister : public IUnRegister,
 		public std::enable_shared_from_this <AutoUnRegister<T>>
 	{
 	public:
-		AutoUnRegister(int id, BindableProperty<T>* property,	std::function<void(T)> callback) 
-			: mProperty(property), 
+		AutoUnRegister(int id, BindableProperty<T>* property, std::function<void(T)> callback)
+			: mProperty(property),
 			mCallback(std::move(callback)),
-			mId(id) 
+			mId(id)
 		{
-
 		}
 		void UnRegisterWhenObjectDestroyed(UnRegisterTrigger* unRegisterTrigger)
 		{
@@ -135,8 +134,8 @@ namespace JFramework
 		}
 		int GetId() const { return mId; }
 
-
-		void UnRegister() override { 
+		void UnRegister() override
+		{
 			if (mProperty)
 			{
 				mProperty->UnRegister(mId);
@@ -144,7 +143,8 @@ namespace JFramework
 			}
 		}
 
-		void Invoke(T value) { 
+		void Invoke(T value)
+		{
 			if (mCallback)
 			{
 				mCallback(std::move(value));
@@ -797,7 +797,6 @@ namespace JFramework
 			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
 			mEventBus->RegisterEvent(typeid(T), handler);
 		}
-
 
 		template <typename T>
 		std::shared_ptr<T> GetModel()
