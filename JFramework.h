@@ -38,9 +38,38 @@ namespace JFramework
 	class IEvent;
 	template<typename TResult> class IQuery;
 	class IUtility;
-	class IArchitecture;
-	// 前向声明
 	template<typename T> class BindableProperty;
+	class ICanHandleEvent;
+
+	// ================ 核心架构接口 ================
+
+	/// @brief 架构核心接口
+	class IArchitecture
+	{
+	public:
+		virtual ~IArchitecture() = default;
+
+		// 注册组件
+		virtual void RegisterSystem(std::type_index typeId, std::shared_ptr<ISystem> system) = 0;
+		virtual void RegisterModel(std::type_index typeId, std::shared_ptr<IModel> model) = 0;
+		virtual void RegisterUtility(std::type_index typeId, std::shared_ptr<IUtility> utility) = 0;
+
+		// 获取组件
+		virtual std::shared_ptr<ISystem> GetSystem(std::type_index typeId) = 0;
+		virtual std::shared_ptr<IModel> GetModel(std::type_index typeId) = 0;
+		virtual std::shared_ptr<IUtility> GetUtility(std::type_index typeId) = 0;
+
+		// 命令管理
+		virtual void SendCommand(std::unique_ptr<ICommand> command) = 0;
+
+		// 事件管理
+		virtual void SendEvent(std::shared_ptr<IEvent> event) = 0;
+		virtual void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler) = 0;
+		virtual void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler) = 0;
+
+		virtual void Deinit() = 0;
+
+	};
 
 	// ================ 基础接口 ================
 
@@ -503,36 +532,6 @@ namespace JFramework
 
 	class IUtility
 	{
-
-	};
-
-	// ================ 核心架构接口 ================
-
-	/// @brief 架构核心接口
-	class IArchitecture
-	{
-	public:
-		virtual ~IArchitecture() = default;
-
-		// 注册组件
-		virtual void RegisterSystem(std::type_index typeId, std::shared_ptr<ISystem> system) = 0;
-		virtual void RegisterModel(std::type_index typeId, std::shared_ptr<IModel> model) = 0;
-		virtual void RegisterUtility(std::type_index typeId, std::shared_ptr<IUtility> utility) = 0;
-
-		// 获取组件
-		virtual std::shared_ptr<ISystem> GetSystem(std::type_index typeId) = 0;
-		virtual std::shared_ptr<IModel> GetModel(std::type_index typeId) = 0;
-		virtual std::shared_ptr<IUtility> GetUtility(std::type_index typeId) = 0;
-
-		// 命令管理
-		virtual void SendCommand(std::unique_ptr<ICommand> command) = 0;
-
-		// 事件管理
-		virtual void SendEvent(std::shared_ptr<IEvent> event) = 0;
-		virtual void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler) = 0;
-		virtual void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler) = 0;
-
-		virtual void Deinit() = 0;
 
 	};
 
