@@ -96,7 +96,7 @@ namespace JFramework
 	public:
 		virtual ~UnRegisterTrigger() { this->UnRegister(); }
 
-		void AddUnRegister(std::unique_ptr<IUnRegister> unRegister)
+		void AddUnRegister(std::shared_ptr<IUnRegister> unRegister)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mUnRegisters.push_back(std::move(unRegister));
@@ -114,28 +114,42 @@ namespace JFramework
 
 	protected:
 		std::mutex mMutex;
-		std::vector<std::unique_ptr<IUnRegister>> mUnRegisters;
+		std::vector<std::shared_ptr<IUnRegister>> mUnRegisters;
 	};
 
 	template <typename T>
-	class AutoUnRegister : public IUnRegister
+	class AutoUnRegister : public IUnRegister, 
+		public std::enable_shared_from_this <AutoUnRegister<T>>
 	{
 	public:
-		AutoUnRegister(int id, BindableProperty<T>* property,
-			std::function<void(T)> callback) : mProperty(property), mCallback(callback), mId(id) 
+		AutoUnRegister(int id, BindableProperty<T>* property,	std::function<void(T)> callback) 
+			: mProperty(property), 
+			mCallback(std::move(callback)),
+			mId(id) 
 		{
 
 		}
 		void UnRegisterWhenObjectDestroyed(UnRegisterTrigger* unRegisterTrigger)
 		{
-			unRegisterTrigger->AddUnRegister(std::unique_ptr<IUnRegister>(this));
+			unRegisterTrigger->AddUnRegister(this->shared_from_this());
 		}
 		int GetId() const { return mId; }
 
 
-		void UnRegister() override { mProperty->UnRegister(this->mId); }
+		void UnRegister() override { 
+			if (mProperty)
+			{
+				mProperty->UnRegister(mId);
+				mProperty = nullptr; // 防止重复调用
+			}
+		}
 
-		void Invoke(T value) { mCallback(std::move(value)); }
+		void Invoke(T value) { 
+			if (mCallback)
+			{
+				mCallback(std::move(value));
+			}
+		}
 	protected:
 		int mId;
 	private:
@@ -158,8 +172,8 @@ namespace JFramework
 		// 设置新值
 		void SetValue(const T& newValue)
 		{
-			if (mValue == newValue) return;
 			std::lock_guard<std::mutex> lock(mMutex);
+			if (mValue == newValue) return;
 			mValue = newValue;
 			Trigger();
 		}
@@ -168,7 +182,7 @@ namespace JFramework
 		void SetValueWithoutEvent(const T& newValue) { mValue = newValue; }
 
 		// 注册观察者（带初始值通知）
-		std::unique_ptr<AutoUnRegister<T>> RegisterWithInitValue(
+		std::shared_ptr<AutoUnRegister<T>> RegisterWithInitValue(
 			std::function<void(const T&)> onValueChanged)
 		{
 			onValueChanged(mValue);
@@ -176,14 +190,11 @@ namespace JFramework
 		}
 
 		// 注册观察者
-		std::unique_ptr<AutoUnRegister<T>> Register(
-			std::function<void(const T&)> onValueChanged)
+		std::shared_ptr<AutoUnRegister<T>> Register(std::function<void(const T&)> onValueChanged)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			auto unRegister = std::make_unique<AutoUnRegister<T>>(
-				mNextId++, this, std::move(onValueChanged));
-			auto* ptr = unRegister.get();
-			mObservers.emplace_back(ptr);
+			auto unRegister = std::make_shared<AutoUnRegister<T>>(mNextId++, this, std::move(onValueChanged));
+			mObservers.push_back(unRegister);
 			return unRegister;
 		}
 
@@ -191,9 +202,17 @@ namespace JFramework
 		void UnRegister(int id)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
+			// 直接从weak_ptr列表中移除对应id的观察者
 			mObservers.erase(
 				std::remove_if(mObservers.begin(), mObservers.end(),
-					[id](const auto& item) { return item->GetId() == id; }),
+					[id](const std::weak_ptr<AutoUnRegister<T>>& weakObserver)
+					{
+						if (auto observer = weakObserver.lock())
+						{
+							return observer->GetId() == id;
+						}
+						return false; // 已失效的观察者由Trigger清理
+					}),
 				mObservers.end());
 		}
 
@@ -209,8 +228,8 @@ namespace JFramework
 		// 通知所有观察者
 		void Trigger()
 		{
-			std::lock_guard<std::mutex> lock(mMutex);
-			for (auto* observer : mObservers)
+			// 通知有效的观察者
+			for (auto& observer : mObservers)
 			{
 				observer->Invoke(mValue);
 			}
@@ -218,7 +237,7 @@ namespace JFramework
 		std::mutex mMutex;
 		int mNextId = 0;
 		T mValue;
-		std::vector<AutoUnRegister<T>*> mObservers;
+		std::vector<std::shared_ptr<AutoUnRegister<T>>> mObservers;
 	};
 
 	/// @brief 初始化接口

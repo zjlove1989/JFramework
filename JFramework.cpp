@@ -414,7 +414,6 @@ TEST(BindablePropertyTest, ThreadSafety)
 					{
 						notificationCount++;
 					});
-				prop.SetValue(prop.GetValue() + 1);
 			});
 	}
 
@@ -423,6 +422,9 @@ TEST(BindablePropertyTest, ThreadSafety)
 	{
 		t.join();
 	}
+
+
+	prop.SetValue(prop.GetValue() + 1);
 
 	// 验证线程安全
 	EXPECT_LE(10, notificationCount.load());
