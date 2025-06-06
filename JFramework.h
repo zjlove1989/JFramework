@@ -156,10 +156,13 @@ namespace JFramework
 	// ================ 核心架构接口 ================
 
 	/// @brief 架构核心接口
-	class IArchitecture
+	class IArchitecture : public std::enable_shared_from_this<IArchitecture>
 	{
 	public:
 		virtual ~IArchitecture() = default;
+		// 新增方法，用于派生类实现 shared_from_this()
+		virtual std::shared_ptr<IArchitecture> GetSharedFromThis() = 0;
+
 
 		// 注册组件
 		virtual void RegisterSystem(std::type_index typeId,
@@ -270,8 +273,35 @@ namespace JFramework
 			this->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
 		}
 
+
+		// ----------------------------------Query--------------------------------------//
+		template <typename T>
+		auto SendQuery(std::unique_ptr<T> query) -> decltype(query->Do())
+		{
+			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, T>,
+				"T must inherit from IQuery");
+
+			if (!query)
+			{
+				throw std::invalid_argument("Query cannot be null");
+			}
+			query->SetArchitecture(GetSharedFromThis());
+			return query->Do();
+		}
+
+		template <typename T, typename... Args>
+		auto SendQuery(Args&&... args) -> decltype(std::declval<T>().Do())
+		{
+			static_assert(std::is_base_of_v<IQuery<decltype(std::declval<T>().Do())>, T>,
+				"T must inherit from IQuery");
+
+			auto query = std::make_unique<T>(std::forward<Args>(args)...);
+			return this->SendQuery(std::move(query));
+		}
+
+
 	protected:
-		bool mInitialized;
+		bool mInitialized = false;
 		std::unique_ptr<IOCContainer> mContainer;
 		std::unique_ptr<EventBus> mEventBus;
 	};
@@ -543,43 +573,30 @@ namespace JFramework
 	class ICanSendQuery : public IBelongToArchitecture
 	{
 	public:
-		template <typename TQuery, typename... Args>
-		auto SendQuery(Args&&... args) -> decltype(std::declval<TQuery>().Do())
+		template <typename T, typename... Args>
+		auto SendQuery(Args&&... args) -> decltype(std::declval<T>().Do())
 		{
-			static_assert(
-				std::is_base_of_v<IQuery<decltype(std::declval<TQuery>().Do())>,
-				TQuery>,
-				"TQuery must inherit from IQuery");
-
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(TQuery).name());
+				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
-			auto query = std::make_unique<TQuery>(std::forward<Args>(args)...);
-
-			query->SetArchitecture(arch);
-			return query->Do();
+			auto result = arch->SendQuery<T>(std::forward<Args>(args)...);
+			return result;
 		}
 
-		template <typename TQuery>
-		auto SendQuery(std::unique_ptr<TQuery> query)
-			-> decltype(std::declval<TQuery>().Do())
+		template <typename T>
+		auto SendQuery(std::unique_ptr<T> query) -> decltype(std::declval<T>().Do())
 		{
-			static_assert(
-				std::is_base_of_v<IQuery<decltype(std::declval<TQuery>().Do())>,
-				TQuery>,
-				"TQuery must inherit from IQuery");
-
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(TQuery).name());
+				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
-			query->SetArchitecture(arch);
-			return query->Do();
+			auto result = arch->SendQuery(std::move(query));
+			return result;
 		}
 	};
 
@@ -788,8 +805,7 @@ namespace JFramework
 	};
 
 	/// @brief 架构基础实现
-	class Architecture : public IArchitecture,
-		public std::enable_shared_from_this<Architecture>
+	class Architecture : public IArchitecture
 	{
 	public:
 		// 引入 IArchitecture 的模板方法
@@ -805,6 +821,11 @@ namespace JFramework
 		using IArchitecture::SendCommand;
 
 	public:
+		// 实现 GetSharedPtr()
+		std::shared_ptr<IArchitecture> GetSharedFromThis() override
+		{
+			return shared_from_this();
+		}
 
 		// ----------------------------------System--------------------------------------//
 
@@ -910,31 +931,6 @@ namespace JFramework
 				throw std::invalid_argument("Event cannot be null");
 			}
 			mEventBus->SendEvent(event);
-		}
-
-
-		template <typename TQuery>
-		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do())
-		{
-			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, TQuery>,
-				"TQuery must inherit from IQuery");
-
-			if (!query)
-			{
-				throw std::invalid_argument("Query cannot be null");
-			}
-			query->SetArchitecture(shared_from_this());
-			return query->Do();
-		}
-
-		template <typename TQuery, typename... Args>
-		auto SendQuery(Args&&... args) -> decltype(std::declval<TQuery>()->Do())
-		{
-			static_assert(std::is_base_of_v<IQuery<decltype(std::declval<TQuery>()->Do())>, TQuery>,
-				"TQuery must inherit from IQuery");
-
-			auto query = std::make_unique<TQuery>(std::forward<Args>(args)...);
-			return this->SendQuery(query);
 		}
 
 		// ----------------------------------Init--------------------------------------//
