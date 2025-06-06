@@ -191,9 +191,9 @@ namespace JFramework {
 		}
 
 		// 不触发通知的设置
-		void SetValueWithoutEvent(const T& newValue) { 
+		void SetValueWithoutEvent(const T& newValue) {
 			std::lock_guard<std::mutex> lock(mMutex);
-			mValue = newValue; 
+			mValue = newValue;
 		}
 
 		// 注册观察者（带初始值通知）
@@ -644,6 +644,7 @@ namespace JFramework {
 	class Architecture : public IArchitecture,
 		public std::enable_shared_from_this<Architecture> {
 	public:
+
 		void RegisterSystem(std::type_index typeId,
 			std::shared_ptr<ISystem> system) override {
 			if (!system) {
@@ -654,6 +655,13 @@ namespace JFramework {
 			if (mInitialized) {
 				InitializeComponent(system);
 			}
+		}
+
+		// 模板方法
+		template <typename T>
+		void RegisterSystem(std::shared_ptr<T> system) {
+			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
+			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
 		}
 
 		void RegisterModel(std::type_index typeId,
@@ -668,28 +676,27 @@ namespace JFramework {
 			}
 		}
 
+		// 模板方法
+		template <typename T>
+		void RegisterModel(std::shared_ptr<T> model) {
+			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
+			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
+		}
+
 		void RegisterUtility(std::type_index typeId,
 			std::shared_ptr<IUtility> utility) override {
 			mContainer->Register<IUtility>(typeId, utility);
 		}
 
-		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override {
-			return mContainer->Get<ISystem>(typeId);
-		}
-
-		std::shared_ptr<IModel> GetModel(std::type_index typeId) override {
-			return mContainer->Get<IModel>(typeId);
-		}
-
-		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override {
-			return mContainer->Get<IUtility>(typeId);
-		}
-
 		// 模板方法
 		template <typename T>
-		void RegisterSystem(std::shared_ptr<T> system) {
-			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
-			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
+		void RegisterUtility(std::shared_ptr<IUtility> utility) {
+			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
+			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
+		}
+
+		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override {
+			return mContainer->Get<ISystem>(typeId);
 		}
 
 		template <typename T>
@@ -701,17 +708,8 @@ namespace JFramework {
 			return std::dynamic_pointer_cast<T>(system);
 		}
 
-		// 模板方法
-		template <typename T>
-		void RegisterModel(std::shared_ptr<T> model) {
-			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
-			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
-		}
-
-		template <typename T>
-		void RegisterEvent(ICanHandleEvent* handler) {
-			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
-			mEventBus->RegisterEvent(typeid(T), handler);
+		std::shared_ptr<IModel> GetModel(std::type_index typeId) override {
+			return mContainer->Get<IModel>(typeId);
 		}
 
 		template <typename T>
@@ -721,6 +719,19 @@ namespace JFramework {
 				throw ComponentNotRegisteredException(typeid(T).name());
 			}
 			return std::dynamic_pointer_cast<T>(model);
+		}
+
+		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override {
+			return mContainer->Get<IUtility>(typeId);
+		}
+
+		template <typename T>
+		std::shared_ptr<T> GetUtility() {
+			auto utility = GetUtility(typeid(T));
+			if (!utility) {
+				throw ComponentNotRegisteredException(typeid(T).name());
+			}
+			return std::dynamic_pointer_cast<T>(utility);
 		}
 
 		void SendCommand(std::unique_ptr<ICommand> command) override {
@@ -762,6 +773,12 @@ namespace JFramework {
 		void RegisterEvent(std::type_index eventType,
 			ICanHandleEvent* handler) override {
 			mEventBus->RegisterEvent(eventType, handler);
+		}
+
+		template <typename T>
+		void RegisterEvent(ICanHandleEvent* handler) {
+			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
+			mEventBus->RegisterEvent(typeid(T), handler);
 		}
 
 		void UnRegisterEvent(std::type_index eventType,
