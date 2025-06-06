@@ -645,6 +645,9 @@ namespace JFramework {
 		public std::enable_shared_from_this<Architecture> {
 	public:
 
+
+		// ----------------------------------System--------------------------------------//
+
 		void RegisterSystem(std::type_index typeId,
 			std::shared_ptr<ISystem> system) override {
 			if (!system) {
@@ -657,43 +660,12 @@ namespace JFramework {
 			}
 		}
 
-		// 模板方法
 		template <typename T>
 		void RegisterSystem(std::shared_ptr<T> system) {
 			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
 			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
 		}
 
-		void RegisterModel(std::type_index typeId,
-			std::shared_ptr<IModel> model) override {
-			if (!model) {
-				throw std::invalid_argument("Model cannot be null");
-			}
-			model->SetArchitecture(shared_from_this());
-			mContainer->Register<IModel>(typeId, model);
-			if (mInitialized) {
-				InitializeComponent(model);
-			}
-		}
-
-		// 模板方法
-		template <typename T>
-		void RegisterModel(std::shared_ptr<T> model) {
-			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
-			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
-		}
-
-		void RegisterUtility(std::type_index typeId,
-			std::shared_ptr<IUtility> utility) override {
-			mContainer->Register<IUtility>(typeId, utility);
-		}
-
-		// 模板方法
-		template <typename T>
-		void RegisterUtility(std::shared_ptr<IUtility> utility) {
-			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
-			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
-		}
 
 		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override {
 			return mContainer->Get<ISystem>(typeId);
@@ -708,6 +680,30 @@ namespace JFramework {
 			return std::dynamic_pointer_cast<T>(system);
 		}
 
+
+		// ----------------------------------Model--------------------------------------//
+
+
+		void RegisterModel(std::type_index typeId,
+			std::shared_ptr<IModel> model) override {
+			if (!model) {
+				throw std::invalid_argument("Model cannot be null");
+			}
+			model->SetArchitecture(shared_from_this());
+			mContainer->Register<IModel>(typeId, model);
+			if (mInitialized) {
+				InitializeComponent(model);
+			}
+		}
+
+		template <typename T>
+		void RegisterModel(std::shared_ptr<T> model) {
+			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
+			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
+		}
+
+
+
 		std::shared_ptr<IModel> GetModel(std::type_index typeId) override {
 			return mContainer->Get<IModel>(typeId);
 		}
@@ -720,6 +716,21 @@ namespace JFramework {
 			}
 			return std::dynamic_pointer_cast<T>(model);
 		}
+
+		// ----------------------------------Utility--------------------------------------//
+
+
+		void RegisterUtility(std::type_index typeId,
+			std::shared_ptr<IUtility> utility) override {
+			mContainer->Register<IUtility>(typeId, utility);
+		}
+
+		template <typename T>
+		void RegisterUtility(std::shared_ptr<IUtility> utility) {
+			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
+			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
+		}
+
 
 		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override {
 			return mContainer->Get<IUtility>(typeId);
@@ -734,6 +745,10 @@ namespace JFramework {
 			return std::dynamic_pointer_cast<T>(utility);
 		}
 
+
+
+		// ----------------------------------Command--------------------------------------//
+
 		void SendCommand(std::unique_ptr<ICommand> command) override {
 			if (!command) {
 				throw std::invalid_argument("Command cannot be null");
@@ -746,29 +761,8 @@ namespace JFramework {
 			}
 		}
 
-		void SendEvent(std::shared_ptr<IEvent> event) override {
-			if (!event) {
-				throw std::invalid_argument("Event cannot be null");
-			}
-			mEventBus->SendEvent(event);
-		}
 
-		template <typename T, typename... Args>
-		void SendEvent(Args&&... args) {
-			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
-		}
-
-		template <typename TQuery>
-		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do()) {
-			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, TQuery>,
-				"TQuery must inherit from IQuery");
-
-			if (!query) {
-				throw std::invalid_argument("Query cannot be null");
-			}
-			query->SetArchitecture(shared_from_this());
-			return query->Do();
-		}
+		// ----------------------------------Event--------------------------------------//
 
 		void RegisterEvent(std::type_index eventType,
 			ICanHandleEvent* handler) override {
@@ -790,6 +784,36 @@ namespace JFramework {
 		void UnRegisterEvent(ICanHandleEvent* handler) {
 			mEventBus->UnRegisterEvent(typeid(T), handler);
 		}
+
+		void SendEvent(std::shared_ptr<IEvent> event) override {
+			if (!event) {
+				throw std::invalid_argument("Event cannot be null");
+			}
+			mEventBus->SendEvent(event);
+		}
+
+		template <typename T, typename... Args>
+		void SendEvent(Args&&... args) {
+			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
+		}
+
+
+		// ----------------------------------Query--------------------------------------//
+
+		template <typename TQuery>
+		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do()) {
+			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, TQuery>,
+				"TQuery must inherit from IQuery");
+
+			if (!query) {
+				throw std::invalid_argument("Query cannot be null");
+			}
+			query->SetArchitecture(shared_from_this());
+			return query->Do();
+		}
+
+
+		// ----------------------------------Init--------------------------------------//
 
 		void Deinit() override {
 			if (!mInitialized) return;
