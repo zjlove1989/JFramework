@@ -8,14 +8,16 @@
 #include "packages/google-testmock.1.16.0/build/native/include/gmock/gmock-matchers.h"
 using namespace JFramework;
 
-class ExtendedTestEvent : public IEvent {
+class ExtendedTestEvent : public IEvent
+{
 public:
 	std::string GetEventType() const override { return "ExtendedTestEvent"; }
 	int eventData = 0;
 };
 
 // 测试用的组件类
-class TestModel : public AbstractModel {
+class TestModel : public AbstractModel
+{
 protected:
 	void OnInit() override { initialized = true; }
 	void OnDeinit() override { initialized = false; }
@@ -24,7 +26,8 @@ public:
 	bool initialized = false;
 };
 
-class TestSystem : public AbstractSystem {
+class TestSystem : public AbstractSystem
+{
 protected:
 	void OnInit() override { initialized = true; }
 	void OnDeinit() override { initialized = false; }
@@ -36,12 +39,14 @@ public:
 
 class TestUtility : public IUtility {};
 
-class TestEvent : public IEvent {
+class TestEvent : public IEvent
+{
 public:
 	std::string GetEventType() const override { return "TestEvent"; }
 };
 
-class TestCommand : public AbstractCommand {
+class TestCommand : public AbstractCommand
+{
 protected:
 	void OnExecute() override { executed = true; }
 
@@ -49,23 +54,27 @@ public:
 	bool executed = false;
 };
 
-class TestQuery : public AbstractQuery<int> {
+class TestQuery : public AbstractQuery<int>
+{
 protected:
 	int OnDo() override { return 42; }
 };
 
-class TestEventHandler : public ICanHandleEvent {
+class TestEventHandler : public ICanHandleEvent
+{
 public:
 	std::shared_ptr<IEvent> lastEvent;
 	bool eventHandled = false;
-	void HandleEvent(std::shared_ptr<IEvent> event) override {
+	void HandleEvent(std::shared_ptr<IEvent> event) override
+	{
 		lastEvent = event;
 		eventHandled = true;
 	}
 };
 
 // 扩展的测试组件
-class ExtendedTestModel : public AbstractModel {
+class ExtendedTestModel : public AbstractModel
+{
 protected:
 	void OnInit() override { initCount++; }
 	void OnDeinit() override { deinitCount++; }
@@ -75,19 +84,24 @@ public:
 	int deinitCount = 0;
 };
 
-class ExtendedTestSystem : public AbstractSystem {
+class ExtendedTestSystem : public AbstractSystem
+{
 protected:
-	void OnInit() override {
+	void OnInit() override
+	{
 		initialized = true;
 		this->RegisterEvent<ExtendedTestEvent>(this);
 	}
-	void OnDeinit() override {
+	void OnDeinit() override
+	{
 		initialized = false;
 		this->UnRegisterEvent<ExtendedTestEvent>(this);
 	}
-	void OnEvent(std::shared_ptr<IEvent> event) override {
+	void OnEvent(std::shared_ptr<IEvent> event) override
+	{
 		auto testEvent = std::dynamic_pointer_cast<ExtendedTestEvent>(event);
-		if (testEvent) {
+		if (testEvent)
+		{
 			lastEvent = event;
 		}
 	}
@@ -97,7 +111,8 @@ public:
 	std::shared_ptr<IEvent> lastEvent = nullptr;
 };
 
-class ExtendedTestCommand : public AbstractCommand {
+class ExtendedTestCommand : public AbstractCommand
+{
 protected:
 	void OnExecute() override { executionCount++; }
 
@@ -106,9 +121,11 @@ public:
 };
 int ExtendedTestCommand::executionCount = 0;
 
-class ExtendedTestQuery : public AbstractQuery<std::string> {
+class ExtendedTestQuery : public AbstractQuery<std::string>
+{
 protected:
-	std::string OnDo() override {
+	std::string OnDo() override
+	{
 		return "QueryResult:" + std::to_string(queryParam);
 	}
 
@@ -117,9 +134,11 @@ public:
 };
 
 // 测试架构类
-class TestArchitecture : public Architecture {
+class TestArchitecture : public Architecture
+{
 protected:
-	void Init() override {
+	void Init() override
+	{
 		// 注册测试组件
 		RegisterModel<TestModel>(std::make_shared<TestModel>());
 		RegisterSystem<TestSystem>(std::make_shared<TestSystem>());
@@ -128,13 +147,15 @@ protected:
 };
 
 // 测试架构类
-class MultipleTestArchitecture : public Architecture {
+class MultipleTestArchitecture : public Architecture
+{
 protected:
 	void Init() override {}
 };
 
 // IOCContainer 测试
-TEST(IOCContainerTest, RegisterAndGet) {
+TEST(IOCContainerTest, RegisterAndGet)
+{
 	IOCContainer container;
 	auto model = std::make_shared<TestModel>();
 	container.Register<TestModel, IModel>(typeid(TestModel), model);
@@ -144,7 +165,8 @@ TEST(IOCContainerTest, RegisterAndGet) {
 	EXPECT_EQ(nullptr, container.Get<IModel>(typeid(TestSystem)));
 }
 
-TEST(IOCContainerTest, GetAll) {
+TEST(IOCContainerTest, GetAll)
+{
 	IOCContainer container;
 	auto model1 = std::make_shared<TestModel>();
 	auto model2 = std::make_shared<TestModel>();
@@ -159,7 +181,8 @@ TEST(IOCContainerTest, GetAll) {
 	container.Clear();
 }
 
-TEST(IOCContainerTest, AdvancedRegistration) {
+TEST(IOCContainerTest, AdvancedRegistration)
+{
 	IOCContainer container;
 
 	// 测试多组件注册
@@ -180,7 +203,8 @@ TEST(IOCContainerTest, AdvancedRegistration) {
 	EXPECT_TRUE(container.GetAll<IModel>().empty());
 }
 
-TEST(IOCContainerTest, TypeSafety) {
+TEST(IOCContainerTest, TypeSafety)
+{
 	IOCContainer container;
 
 	// 测试类型安全
@@ -195,19 +219,23 @@ TEST(IOCContainerTest, TypeSafety) {
 	EXPECT_NE(nullptr, container.Get<ISystem>(typeid(ExtendedTestSystem)));
 }
 
-TEST(IOCContainerTest, ThreadSafeRegistration) {
+TEST(IOCContainerTest, ThreadSafeRegistration)
+{
 	IOCContainer container;
 	const int threadCount = 10;
 	std::vector<std::thread> threads;
 
-	for (int i = 0; i < threadCount; ++i) {
-		threads.emplace_back([&container, i]() {
-			auto model = std::make_shared<TestModel>();
-			container.Register<TestModel, IModel>(typeid(TestModel), model);
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([&container, i]()
+			{
+				auto model = std::make_shared<TestModel>();
+				container.Register<TestModel, IModel>(typeid(TestModel), model);
 			});
 	}
 
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 
@@ -216,7 +244,8 @@ TEST(IOCContainerTest, ThreadSafeRegistration) {
 	EXPECT_EQ(1, allModels.size());
 }
 
-TEST(IOCContainerTest, DifferentBaseTypes) {
+TEST(IOCContainerTest, DifferentBaseTypes)
+{
 	IOCContainer container;
 
 	// 测试同一类型注册为不同基类
@@ -228,7 +257,8 @@ TEST(IOCContainerTest, DifferentBaseTypes) {
 }
 
 // EventBus 测试
-TEST(EventBusTest, EventHandling) {
+TEST(EventBusTest, EventHandling)
+{
 	EventBus bus;
 	TestEventHandler handler;
 	auto event = std::make_shared<TestEvent>();
@@ -239,7 +269,8 @@ TEST(EventBusTest, EventHandling) {
 	EXPECT_TRUE(handler.eventHandled);
 }
 
-TEST(EventBusTest, UnregisterEvent) {
+TEST(EventBusTest, UnregisterEvent)
+{
 	EventBus bus;
 	TestEventHandler handler;
 	auto event = std::make_shared<TestEvent>();
@@ -251,7 +282,8 @@ TEST(EventBusTest, UnregisterEvent) {
 	EXPECT_FALSE(handler.eventHandled);
 }
 
-TEST(EventBusTest, MultipleHandlers) {
+TEST(EventBusTest, MultipleHandlers)
+{
 	EventBus bus;
 
 	// 创建多个处理器
@@ -271,7 +303,8 @@ TEST(EventBusTest, MultipleHandlers) {
 	EXPECT_TRUE(handler2.eventHandled);
 }
 
-TEST(EventBusTest, EventDataIntegrity) {
+TEST(EventBusTest, EventDataIntegrity)
+{
 	EventBus bus;
 	TestEventHandler handler;
 
@@ -289,14 +322,17 @@ TEST(EventBusTest, EventDataIntegrity) {
 	EXPECT_EQ(42, receivedEvent->eventData);
 }
 
-TEST(EventBusTest, EventHandlerOrder) {
+TEST(EventBusTest, EventHandlerOrder)
+{
 	EventBus bus;
 	std::vector<int> handlerOrder;
 
-	class OrderedHandler : public ICanHandleEvent {
+	class OrderedHandler : public ICanHandleEvent
+	{
 	public:
 		OrderedHandler(int id, std::vector<int>& order) : mId(id), mOrder(order) {}
-		void HandleEvent(std::shared_ptr<IEvent>) override {
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
 			mOrder.push_back(mId);
 		}
 
@@ -318,10 +354,12 @@ TEST(EventBusTest, EventHandlerOrder) {
 	EXPECT_EQ(2, handlerOrder[1]);
 }
 
-TEST(EventBusTest, EventTypeMatching) {
+TEST(EventBusTest, EventTypeMatching)
+{
 	EventBus bus;
 
-	class DerivedEvent : public TestEvent {
+	class DerivedEvent : public TestEvent
+	{
 	public:
 		std::string GetEventType() const override { return "DerivedEvent"; }
 	};
@@ -340,7 +378,8 @@ TEST(EventBusTest, EventTypeMatching) {
 	EXPECT_TRUE(derivedHandler.eventHandled);
 }
 
-TEST(EventBusTest, ClearAllHandlers) {
+TEST(EventBusTest, ClearAllHandlers)
+{
 	EventBus bus;
 	TestEventHandler handler1, handler2;
 
@@ -355,17 +394,21 @@ TEST(EventBusTest, ClearAllHandlers) {
 	EXPECT_FALSE(handler2.eventHandled);
 }
 
-TEST(EventBusTest, ExceptionInEventHandler) {
+TEST(EventBusTest, ExceptionInEventHandler)
+{
 	EventBus bus;
 
-	class FaultyHandler : public ICanHandleEvent {
+	class FaultyHandler : public ICanHandleEvent
+	{
 	public:
-		void HandleEvent(std::shared_ptr<IEvent>) override {
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
 			throw std::runtime_error("Handler error");
 		}
 	};
 
-	class GoodHandler : public ICanHandleEvent {
+	class GoodHandler : public ICanHandleEvent
+	{
 	public:
 		void HandleEvent(std::shared_ptr<IEvent>) override { handled = true; }
 		bool handled = false;
@@ -383,7 +426,8 @@ TEST(EventBusTest, ExceptionInEventHandler) {
 }
 
 // Architecture 测试
-TEST(ArchitectureTest, ComponentRegistration) {
+TEST(ArchitectureTest, ComponentRegistration)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -398,7 +442,8 @@ TEST(ArchitectureTest, ComponentRegistration) {
 	EXPECT_TRUE(system->initialized);
 }
 
-TEST(ArchitectureTest, CommandExecution) {
+TEST(ArchitectureTest, CommandExecution)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -409,7 +454,8 @@ TEST(ArchitectureTest, CommandExecution) {
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
-TEST(ArchitectureTest, QueryExecution) {
+TEST(ArchitectureTest, QueryExecution)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -419,7 +465,8 @@ TEST(ArchitectureTest, QueryExecution) {
 	EXPECT_EQ(42, result);
 }
 
-TEST(ArchitectureTest, EventHandling) {
+TEST(ArchitectureTest, EventHandling)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -432,7 +479,8 @@ TEST(ArchitectureTest, EventHandling) {
 	EXPECT_TRUE(handler.eventHandled);
 }
 
-TEST(ArchitectureTest, ComponentLifecycle) {
+TEST(ArchitectureTest, ComponentLifecycle)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 
 	// 注册自定义组件
@@ -455,7 +503,8 @@ TEST(ArchitectureTest, ComponentLifecycle) {
 	EXPECT_EQ(1, model->deinitCount);
 }
 
-TEST(ArchitectureTest, CommandChaining) {
+TEST(ArchitectureTest, CommandChaining)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -470,7 +519,8 @@ TEST(ArchitectureTest, CommandChaining) {
 	EXPECT_EQ(2, ExtendedTestCommand::executionCount);
 }
 
-TEST(ArchitectureTest, QueryWithParameters) {
+TEST(ArchitectureTest, QueryWithParameters)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -481,7 +531,8 @@ TEST(ArchitectureTest, QueryWithParameters) {
 	EXPECT_EQ("QueryResult:123", result);
 }
 
-TEST(ArchitectureTest, UtilityUsage) {
+TEST(ArchitectureTest, UtilityUsage)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -491,13 +542,15 @@ TEST(ArchitectureTest, UtilityUsage) {
 	// 测试utility的具体功能
 }
 
-TEST(ArchitectureTest, MultipleInitDeinitCycles) {
+TEST(ArchitectureTest, MultipleInitDeinitCycles)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	auto model = std::make_shared<ExtendedTestModel>();
 	arch->RegisterModel<ExtendedTestModel>(model);
 
 	// 多次初始化和反初始化
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < 3; ++i)
+	{
 		arch->InitArchitecture();
 		EXPECT_EQ(i + 1, model->initCount);
 
@@ -508,10 +561,13 @@ TEST(ArchitectureTest, MultipleInitDeinitCycles) {
 
 static int executionCount = 0;
 
-TEST(ArchitectureTest, CommandInCommand) {
-	class NestedCommand : public AbstractCommand {
+TEST(ArchitectureTest, CommandInCommand)
+{
+	class NestedCommand : public AbstractCommand
+	{
 	protected:
-		void OnExecute() override {
+		void OnExecute() override
+		{
 			// 在命令中发送另一个命令
 			this->SendCommand<TestCommand>();
 		}
@@ -534,15 +590,19 @@ TEST(ArchitectureTest, CommandInCommand) {
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
-TEST(ArchitectureTest, ChainedQueries) {
-	class FirstQuery : public AbstractQuery<int> {
+TEST(ArchitectureTest, ChainedQueries)
+{
+	class FirstQuery : public AbstractQuery<int>
+	{
 	protected:
 		int OnDo() override { return 10; }
 	};
 
-	class SecondQuery : public AbstractQuery<std::string> {
+	class SecondQuery : public AbstractQuery<std::string>
+	{
 	protected:
-		std::string OnDo() override {
+		std::string OnDo() override
+		{
 			auto firstResult = this->SendQuery<FirstQuery>();
 			return "Result:" + std::to_string(firstResult);
 		}
@@ -555,7 +615,8 @@ TEST(ArchitectureTest, ChainedQueries) {
 	EXPECT_EQ("Result:10", result);
 }
 
-TEST(ArchitectureTest, LateComponentRegistration) {
+TEST(ArchitectureTest, LateComponentRegistration)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();  // 先初始化架构
 
@@ -567,10 +628,13 @@ TEST(ArchitectureTest, LateComponentRegistration) {
 	EXPECT_EQ(1, model->initCount);
 }
 
-TEST(ArchitectureTest, ComponentDependencies) {
-	class DependentSystem : public AbstractSystem {
+TEST(ArchitectureTest, ComponentDependencies)
+{
+	class DependentSystem : public AbstractSystem
+	{
 	protected:
-		void OnInit() override {
+		void OnInit() override
+		{
 			// 获取依赖的模型
 			auto model = GetModel<TestModel>();
 			modelInitialized = model->initialized;
@@ -595,7 +659,8 @@ TEST(ArchitectureTest, ComponentDependencies) {
 	EXPECT_TRUE(system->modelInitialized);
 }
 
-TEST(ArchitectureTest, MultipleArchitectureInstances) {
+TEST(ArchitectureTest, MultipleArchitectureInstances)
+{
 	auto arch1 = std::make_shared<MultipleTestArchitecture>();
 	auto arch2 = std::make_shared<MultipleTestArchitecture>();
 
@@ -611,19 +676,23 @@ TEST(ArchitectureTest, MultipleArchitectureInstances) {
 	EXPECT_TRUE(model1->initialized);
 	EXPECT_FALSE(model2->initialized);
 }
-TEST(ConcurrencyTest, ConcurrentComponentRegistration) {
+TEST(ConcurrencyTest, ConcurrentComponentRegistration)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	std::vector<std::thread> threads;
 	const int threadCount = 10;
 
-	for (int i = 0; i < threadCount; ++i) {
-		threads.emplace_back([arch] {
-			auto model = std::make_shared<ExtendedTestModel>();
-			arch->RegisterModel<ExtendedTestModel>(model);
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([arch]
+			{
+				auto model = std::make_shared<ExtendedTestModel>();
+				arch->RegisterModel<ExtendedTestModel>(model);
 			});
 	}
 
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 
@@ -632,13 +701,16 @@ TEST(ConcurrencyTest, ConcurrentComponentRegistration) {
 	EXPECT_EQ(1, models.size());  // 原始1个+新增的threadCount个
 }
 
-TEST(ConcurrencyTest, ConcurrentEventHandling) {
+TEST(ConcurrencyTest, ConcurrentEventHandling)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
-	class ConcurrentEventHandler : public ICanHandleEvent {
+	class ConcurrentEventHandler : public ICanHandleEvent
+	{
 	public:
-		void HandleEvent(std::shared_ptr<IEvent>) override {
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
 			std::lock_guard<std::mutex> lock(mutex);
 			count++;
 		}
@@ -653,22 +725,27 @@ TEST(ConcurrencyTest, ConcurrentEventHandling) {
 	const int eventsPerThread = 100;
 	std::vector<std::thread> threads;
 
-	for (int i = 0; i < threadCount; ++i) {
-		threads.emplace_back([arch]() {
-			for (int j = 0; j < eventsPerThread; ++j) {
-				arch->SendEvent(std::make_shared<TestEvent>());
-			}
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([arch]()
+			{
+				for (int j = 0; j < eventsPerThread; ++j)
+				{
+					arch->SendEvent(std::make_shared<TestEvent>());
+				}
 			});
 	}
 
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 
 	EXPECT_EQ(threadCount * eventsPerThread, handler.count);
 }
 
-TEST(ConcurrencyTest, ConcurrentPropertyAccess) {
+TEST(ConcurrencyTest, ConcurrentPropertyAccess)
+{
 	BindableProperty<int> prop(0);
 	std::atomic<int> sum(0);
 	const int threadCount = 10;
@@ -676,18 +753,22 @@ TEST(ConcurrencyTest, ConcurrentPropertyAccess) {
 	std::vector<std::thread> threads;
 
 	// 修改测试逻辑，只测试线程安全性，不验证最终值
-	for (int i = 0; i < threadCount; ++i) {
-		threads.emplace_back([&]() {
-			for (int j = 0; j < iterations; ++j) {
-				// 使用原子操作确保线程安全
-				int current = prop.GetValue();
-				prop.SetValue(current + 1);
-				sum.fetch_add(1, std::memory_order_relaxed);
-			}
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([&]()
+			{
+				for (int j = 0; j < iterations; ++j)
+				{
+					// 使用原子操作确保线程安全
+					int current = prop.GetValue();
+					prop.SetValue(current + 1);
+					sum.fetch_add(1, std::memory_order_relaxed);
+				}
 			});
 	}
 
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 
@@ -697,20 +778,23 @@ TEST(ConcurrencyTest, ConcurrentPropertyAccess) {
 }
 
 // BindableProperty 测试
-TEST(BindablePropertyTest, ValueChangeNotification) {
+TEST(BindablePropertyTest, ValueChangeNotification)
+{
 	BindableProperty<int> prop(10);
 	bool notified = false;
 
-	auto unregister = prop.Register([&](int val) {
-		notified = true;
-		EXPECT_EQ(20, val);
+	auto unregister = prop.Register([&](int val)
+		{
+			notified = true;
+			EXPECT_EQ(20, val);
 		});
 
 	prop.SetValue(20);
 	EXPECT_TRUE(notified);
 }
 
-TEST(BindablePropertyTest, Unregister) {
+TEST(BindablePropertyTest, Unregister)
+{
 	BindableProperty<int> prop(10);
 	bool notified = false;
 
@@ -726,32 +810,38 @@ TEST(BindablePropertyTest, Unregister) {
 	EXPECT_FALSE(notified);
 }
 
-TEST(BindablePropertyTest, RegisterWithInitValue) {
+TEST(BindablePropertyTest, RegisterWithInitValue)
+{
 	BindableProperty<int> prop(10);
 	bool notified = false;
 
-	auto unregister = prop.RegisterWithInitValue([&](int val) {
-		notified = true;
-		EXPECT_EQ(10, val);
+	auto unregister = prop.RegisterWithInitValue([&](int val)
+		{
+			notified = true;
+			EXPECT_EQ(10, val);
 		});
 
 	EXPECT_TRUE(notified);
 }
 
-TEST(BindablePropertyTest, ThreadSafety) {
+TEST(BindablePropertyTest, ThreadSafety)
+{
 	BindableProperty<int> prop(0);
 	std::atomic<int> notificationCount{ 0 };
 	std::vector<std::thread> threads;
 
 	// 创建多个线程同时修改和监听属性
-	for (int i = 0; i < 10; ++i) {
-		threads.emplace_back([&] {
-			auto unregister = prop.Register([&](int) { notificationCount++; });
+	for (int i = 0; i < 10; ++i)
+	{
+		threads.emplace_back([&]
+			{
+				auto unregister = prop.Register([&](int) { notificationCount++; });
 			});
 	}
 
 	// 等待所有线程完成
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 
@@ -761,7 +851,8 @@ TEST(BindablePropertyTest, ThreadSafety) {
 	EXPECT_LE(10, notificationCount.load());
 }
 
-TEST(BindablePropertyTest, ValueSemantics) {
+TEST(BindablePropertyTest, ValueSemantics)
+{
 	BindableProperty<std::string> prop("initial");
 
 	// 测试字符串移动语义
@@ -774,7 +865,8 @@ TEST(BindablePropertyTest, ValueSemantics) {
 	EXPECT_EQ(std::string(1000, 'b'), prop.GetValue());
 }
 
-TEST(BindablePropertyTest, MemoryManagement) {
+TEST(BindablePropertyTest, MemoryManagement)
+{
 	auto prop = std::make_shared<BindableProperty<int>>(0);
 	auto observer = std::make_shared<bool>(false);
 
@@ -792,7 +884,8 @@ TEST(BindablePropertyTest, MemoryManagement) {
 	EXPECT_TRUE(weakObserver.expired());
 }
 
-TEST(BindablePropertyTest, OperatorOverloads) {
+TEST(BindablePropertyTest, OperatorOverloads)
+{
 	BindableProperty<int> prop(10);
 
 	// 测试隐式转换操作符
@@ -808,7 +901,8 @@ TEST(BindablePropertyTest, OperatorOverloads) {
 	EXPECT_FALSE(prop != 20);
 }
 
-TEST(BindablePropertyTest, SetWithoutEvent) {
+TEST(BindablePropertyTest, SetWithoutEvent)
+{
 	BindableProperty<int> prop(10);
 	bool notified = false;
 
@@ -819,7 +913,8 @@ TEST(BindablePropertyTest, SetWithoutEvent) {
 	EXPECT_FALSE(notified);  // 不应触发通知
 }
 
-TEST(BindablePropertyTest, MultipleObservers) {
+TEST(BindablePropertyTest, MultipleObservers)
+{
 	BindableProperty<std::string> prop("init");
 	int notificationCount = 0;
 
@@ -832,7 +927,8 @@ TEST(BindablePropertyTest, MultipleObservers) {
 	EXPECT_EQ(2, notificationCount);
 }
 
-TEST(BindablePropertyTest, NoNotificationOnSameValue) {
+TEST(BindablePropertyTest, NoNotificationOnSameValue)
+{
 	BindableProperty<int> prop(10);
 	int notificationCount = 0;
 
@@ -845,7 +941,8 @@ TEST(BindablePropertyTest, NoNotificationOnSameValue) {
 	EXPECT_EQ(1, notificationCount);
 }
 
-TEST(BindablePropertyTest, MultipleRegistrations) {
+TEST(BindablePropertyTest, MultipleRegistrations)
+{
 	BindableProperty<int> prop(0);
 	std::vector<int> notifications;
 
@@ -865,12 +962,15 @@ TEST(BindablePropertyTest, MultipleRegistrations) {
 }
 
 // 能力接口测试
-TEST(CapabilityTest, CanGetModel) {
-	class TestComponent : public ICanGetModel {
+TEST(CapabilityTest, CanGetModel)
+{
+	class TestComponent : public ICanGetModel
+	{
 	public:
 		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
 
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
+		{
 			return mArch;
 		}
 
@@ -886,13 +986,16 @@ TEST(CapabilityTest, CanGetModel) {
 	EXPECT_NE(nullptr, model);
 }
 
-TEST(CapabilityTest, CanSendCommand) {
+TEST(CapabilityTest, CanSendCommand)
+{
 	// 将 arch 提升为静态变量或通过其他方式传递
-	class TestComponent : public ICanSendCommand {
+	class TestComponent : public ICanSendCommand
+	{
 	public:
 		explicit TestComponent(std::shared_ptr<IArchitecture> arch) : mArch(arch) {}
 
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
+		{
 			return mArch;
 		}
 
@@ -910,7 +1013,8 @@ TEST(CapabilityTest, CanSendCommand) {
 	EXPECT_TRUE(cmdPtr->executed);
 }
 
-TEST(ExceptionTest, ComponentNotRegistered) {
+TEST(ExceptionTest, ComponentNotRegistered)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -921,18 +1025,23 @@ TEST(ExceptionTest, ComponentNotRegistered) {
 		ComponentNotRegisteredException);
 }
 
-TEST(IntegrationTest, ComponentInteraction) {
+TEST(IntegrationTest, ComponentInteraction)
+{
 	// 注册事件处理器
-	class EventHandler : public AbstractController {
+	class EventHandler : public AbstractController
+	{
 	protected:
-		void OnEvent(std::shared_ptr<IEvent> event) override {
+		void OnEvent(std::shared_ptr<IEvent> event) override
+		{
 			auto testEvent = std::dynamic_pointer_cast<ExtendedTestEvent>(event);
-			if (testEvent) {
+			if (testEvent)
+			{
 				eventReceived = true;
 			}
 		}
 
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
+		{
 			return mArch;
 		}
 
@@ -965,14 +1074,16 @@ TEST(IntegrationTest, ComponentInteraction) {
 	EXPECT_NE(nullptr, system->lastEvent);
 }
 
-TEST(PerformanceTest, CommandThroughput) {
+TEST(PerformanceTest, CommandThroughput)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
 	const int iterations = 10000;
 	auto start = std::chrono::high_resolution_clock::now();
 
-	for (int i = 0; i < iterations; ++i) {
+	for (int i = 0; i < iterations; ++i)
+	{
 		arch->SendCommand(std::make_unique<TestCommand>());
 	}
 
@@ -985,11 +1096,13 @@ TEST(PerformanceTest, CommandThroughput) {
 	EXPECT_TRUE(duration.count() < 100);  // 确保性能在合理范围内
 }
 
-TEST(PerformanceTest, EventThroughput) {
+TEST(PerformanceTest, EventThroughput)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
-	class PerformanceEventHandler : public ICanHandleEvent {
+	class PerformanceEventHandler : public ICanHandleEvent
+	{
 	public:
 		void HandleEvent(std::shared_ptr<IEvent>) override { count++; }
 		std::atomic<int> count{ 0 };
@@ -1001,7 +1114,8 @@ TEST(PerformanceTest, EventThroughput) {
 	const int iterations = 10000;
 	auto start = std::chrono::high_resolution_clock::now();
 
-	for (int i = 0; i < iterations; ++i) {
+	for (int i = 0; i < iterations; ++i)
+	{
 		arch->SendEvent(std::make_shared<TestEvent>());
 	}
 
@@ -1015,7 +1129,8 @@ TEST(PerformanceTest, EventThroughput) {
 	EXPECT_TRUE(duration.count() < 100);
 }
 
-TEST(AutoUnRegisterTest, UnRegisterWhenDestroyed) {
+TEST(AutoUnRegisterTest, UnRegisterWhenDestroyed)
+{
 	BindableProperty<int> prop(0);
 	bool notified = false;
 
@@ -1033,7 +1148,8 @@ TEST(AutoUnRegisterTest, UnRegisterWhenDestroyed) {
 	EXPECT_FALSE(notified);  // 应不再收到通知
 }
 
-TEST(AutoUnRegisterTest, ManualUnRegister) {
+TEST(AutoUnRegisterTest, ManualUnRegister)
+{
 	BindableProperty<int> prop(0);
 	bool notified = false;
 
@@ -1048,13 +1164,16 @@ TEST(AutoUnRegisterTest, ManualUnRegister) {
 	EXPECT_FALSE(notified);  // 手动注销后不应收到通知
 }
 
-TEST(EventRegistrationTest, MultipleEventTypes) {
+TEST(EventRegistrationTest, MultipleEventTypes)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
-	class MultiEventHandler : public ICanHandleEvent {
+	class MultiEventHandler : public ICanHandleEvent
+	{
 	public:
-		void HandleEvent(std::shared_ptr<IEvent> event) override {
+		void HandleEvent(std::shared_ptr<IEvent> event) override
+		{
 			if (event->GetEventType() == "TestEvent")
 				testEventCount++;
 			else if (event->GetEventType() == "ExtendedTestEvent")
@@ -1080,8 +1199,10 @@ TEST(EventRegistrationTest, MultipleEventTypes) {
 	EXPECT_EQ(1, handler.testEventCount);  // 不应增加
 }
 
-TEST(QueryTest, ChainedQueriesWithParameters) {
-	class ParamQuery : public AbstractQuery<int> {
+TEST(QueryTest, ChainedQueriesWithParameters)
+{
+	class ParamQuery : public AbstractQuery<int>
+	{
 	protected:
 		int OnDo() override { return param; }
 
@@ -1089,9 +1210,11 @@ TEST(QueryTest, ChainedQueriesWithParameters) {
 		int param = 0;
 	};
 
-	class ChainedQuery : public AbstractQuery<std::string> {
+	class ChainedQuery : public AbstractQuery<std::string>
+	{
 	protected:
-		std::string OnDo() override {
+		std::string OnDo() override
+		{
 			auto q1 = std::make_unique<ParamQuery>();
 			q1->param = 10;
 			auto q2 = std::make_unique<ParamQuery>();
@@ -1111,8 +1234,10 @@ TEST(QueryTest, ChainedQueriesWithParameters) {
 	EXPECT_EQ("30", result);
 }
 
-TEST(ExceptionSafetyTest, ComponentInitializationFailure) {
-	class FaultyModel : public AbstractModel {
+TEST(ExceptionSafetyTest, ComponentInitializationFailure)
+{
+	class FaultyModel : public AbstractModel
+	{
 	protected:
 		void OnInit() override { throw std::runtime_error("Init failed"); }
 		void OnDeinit() override {}
@@ -1134,8 +1259,10 @@ TEST(ExceptionSafetyTest, ComponentInitializationFailure) {
 	EXPECT_NO_THROW(arch->SendCommand(std::make_unique<TestCommand>()));
 }
 
-TEST(ExceptionSafetyTest, CommandExecutionFailure) {
-	class FaultyCommand : public AbstractCommand {
+TEST(ExceptionSafetyTest, CommandExecutionFailure)
+{
+	class FaultyCommand : public AbstractCommand
+	{
 	protected:
 		void OnExecute() override { throw std::runtime_error("Command failed"); }
 	};
@@ -1150,13 +1277,16 @@ TEST(ExceptionSafetyTest, CommandExecutionFailure) {
 	EXPECT_NO_THROW(arch->SendCommand(std::make_unique<TestCommand>()));
 }
 
-TEST(ExceptionSafetyTest, EventHandlerThrowsDuringRegistration) {
+TEST(ExceptionSafetyTest, EventHandlerThrowsDuringRegistration)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
-	class FaultyHandler : public ICanHandleEvent {
+	class FaultyHandler : public ICanHandleEvent
+	{
 	public:
-		void HandleEvent(std::shared_ptr<IEvent>) override {
+		void HandleEvent(std::shared_ptr<IEvent>) override
+		{
 			throw std::runtime_error("Faulty handler");
 		}
 	};
@@ -1170,7 +1300,8 @@ TEST(ExceptionSafetyTest, EventHandlerThrowsDuringRegistration) {
 	EXPECT_NO_THROW(arch->SendEvent(std::make_shared<TestEvent>()));
 }
 
-TEST(ExceptionSafetyTest, ComponentRegistrationAfterDeinit) {
+TEST(ExceptionSafetyTest, ComponentRegistrationAfterDeinit)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 	arch->Deinit();
@@ -1184,13 +1315,15 @@ TEST(ExceptionSafetyTest, ComponentRegistrationAfterDeinit) {
 	EXPECT_FALSE(model->initialized);
 }
 
-TEST(PerformanceTest, PropertyNotificationScalability) {
+TEST(PerformanceTest, PropertyNotificationScalability)
+{
 	BindableProperty<int> prop(0);
 	const int observerCount = 1000;
 	std::atomic<int> notificationCount{ 0 };
 
 	std::vector<std::shared_ptr<AutoUnRegister<int>>> observers;
-	for (int i = 0; i < observerCount; ++i) {
+	for (int i = 0; i < observerCount; ++i)
+	{
 		observers.push_back(prop.Register([&](int) { notificationCount++; }));
 	}
 
@@ -1205,11 +1338,13 @@ TEST(PerformanceTest, PropertyNotificationScalability) {
 	EXPECT_EQ(observerCount, notificationCount.load());
 }
 
-TEST(PerformanceTest, ConcurrentEventProcessing) {
+TEST(PerformanceTest, ConcurrentEventProcessing)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
-	class CountingHandler : public ICanHandleEvent {
+	class CountingHandler : public ICanHandleEvent
+	{
 	public:
 		void HandleEvent(std::shared_ptr<IEvent>) override { count++; }
 		std::atomic<int> count{ 0 };
@@ -1223,15 +1358,19 @@ TEST(PerformanceTest, ConcurrentEventProcessing) {
 	std::vector<std::thread> threads;
 
 	auto start = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i < threadCount; ++i) {
-		threads.emplace_back([arch]() {
-			for (int j = 0; j < eventsPerThread; ++j) {
-				arch->SendEvent(std::make_shared<TestEvent>());
-			}
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([arch]()
+			{
+				for (int j = 0; j < eventsPerThread; ++j)
+				{
+					arch->SendEvent(std::make_shared<TestEvent>());
+				}
 			});
 	}
 
-	for (auto& t : threads) {
+	for (auto& t : threads)
+	{
 		t.join();
 	}
 	auto end = std::chrono::high_resolution_clock::now();
@@ -1243,7 +1382,8 @@ TEST(PerformanceTest, ConcurrentEventProcessing) {
 	EXPECT_EQ(threadCount * eventsPerThread, handler.count.load());
 }
 
-TEST(MemoryTest, EventHandlerLeak) {
+TEST(MemoryTest, EventHandlerLeak)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -1266,7 +1406,8 @@ TEST(MemoryTest, EventHandlerLeak) {
 	EXPECT_TRUE(weakHandler.expired());
 }
 
-TEST(MemoryTest, PropertyObserverLeak) {
+TEST(MemoryTest, PropertyObserverLeak)
+{
 	auto prop = std::make_shared<BindableProperty<int>>(0);
 	std::weak_ptr<AutoUnRegister<int>> weakUnregister;
 
@@ -1285,7 +1426,8 @@ TEST(MemoryTest, PropertyObserverLeak) {
 	EXPECT_TRUE(weakUnregister.expired());
 }
 
-TEST(MemoryTest, ArchitectureSharedOwnership) {
+TEST(MemoryTest, ArchitectureSharedOwnership)
+{
 	std::weak_ptr<IArchitecture> weakArch;
 
 	{
@@ -1305,7 +1447,8 @@ TEST(MemoryTest, ArchitectureSharedOwnership) {
 	EXPECT_TRUE(weakArch.expired());
 }
 
-TEST(MemoryTest, EventHandlerUnregistration) {
+TEST(MemoryTest, EventHandlerUnregistration)
+{
 	auto arch = std::make_shared<TestArchitecture>();
 	arch->InitArchitecture();
 
@@ -1328,15 +1471,20 @@ TEST(MemoryTest, EventHandlerUnregistration) {
 	EXPECT_TRUE(weakHandler.expired());
 }
 
-TEST(ControllerTest, ControllerFunctionality) {
-	class TestController : public AbstractController {
-		void OnEvent(std::shared_ptr<IEvent> event) override {
-			if (auto* e = dynamic_cast<TestEvent*>(event.get())) {
+TEST(ControllerTest, ControllerFunctionality)
+{
+	class TestController : public AbstractController
+	{
+		void OnEvent(std::shared_ptr<IEvent> event) override
+		{
+			if (auto* e = dynamic_cast<TestEvent*>(event.get()))
+			{
 				handled = true;
 			}
 		}
 
-		std::weak_ptr<IArchitecture> GetArchitecture() const override {
+		std::weak_ptr<IArchitecture> GetArchitecture() const override
+		{
 			return mArch;
 		}
 
@@ -1345,7 +1493,8 @@ TEST(ControllerTest, ControllerFunctionality) {
 
 	public:
 		explicit TestController(std::shared_ptr<IArchitecture> arch)
-			: mArch(arch) {
+			: mArch(arch)
+		{
 		}
 
 		bool handled = false;
@@ -1360,7 +1509,8 @@ TEST(ControllerTest, ControllerFunctionality) {
 	EXPECT_TRUE(controller.handled);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }

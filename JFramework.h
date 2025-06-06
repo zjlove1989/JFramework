@@ -34,24 +34,30 @@
 #include <typeindex>
 #include <unordered_map>
 
-namespace JFramework {
+namespace JFramework
+{
 	// ================ 异常定义 ================
-	class FrameworkException : public std::runtime_error {
+	class FrameworkException : public std::runtime_error
+	{
 	public:
 		using std::runtime_error::runtime_error;
 	};
 
-	class ArchitectureNotSetException : public FrameworkException {
+	class ArchitectureNotSetException : public FrameworkException
+	{
 	public:
 		ArchitectureNotSetException(const std::string& typeName)
-			: FrameworkException("Architecture not available: " + typeName) {
+			: FrameworkException("Architecture not available: " + typeName)
+		{
 		}
 	};
 
-	class ComponentNotRegisteredException : public FrameworkException {
+	class ComponentNotRegisteredException : public FrameworkException
+	{
 	public:
 		explicit ComponentNotRegisteredException(const std::string& typeName)
-			: FrameworkException("Component not registered: " + typeName) {
+			: FrameworkException("Component not registered: " + typeName)
+		{
 		}
 	};
 
@@ -59,18 +65,102 @@ namespace JFramework {
 	class ISystem;
 	class IModel;
 	class ICommand;
-	class IEvent;
 	template <typename TResult>
 	class IQuery;
 	class IUtility;
 	template <typename T>
 	class BindableProperty;
-	class ICanHandleEvent;
+	class IOCContainer;
+
+
+	/// @brief 事件接口
+	class IEvent
+	{
+	public:
+		virtual ~IEvent() = default;
+		virtual std::string GetEventType() const = 0;
+	};
+
+
+	/// @brief 处理Event能力
+	class ICanHandleEvent
+	{
+	public:
+		virtual ~ICanHandleEvent() = default;
+		virtual void HandleEvent(std::shared_ptr<IEvent> event) = 0;
+	};
+
+	/// @brief 事件总线实现
+	class EventBus
+	{
+	public:
+		void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
+		{
+			std::lock_guard<std::mutex> lock(mMutex);
+			mSubscribers[eventType].push_back(handler);
+		}
+
+		void SendEvent(std::shared_ptr<IEvent> event)
+		{
+			std::vector<ICanHandleEvent*> subscribers;
+			{
+				std::lock_guard<std::mutex> lock(mMutex);
+				auto it = mSubscribers.find(typeid(*event));
+				if (it != mSubscribers.end())
+				{
+					subscribers = it->second;
+				}
+			}
+
+			for (auto& handler : subscribers)
+			{
+				try
+				{
+					handler->HandleEvent(event);
+				}
+				catch (const std::exception&)
+				{
+				}
+			}
+		}
+
+		void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
+		{
+			std::lock_guard<std::mutex> lock(mMutex);
+			auto it = mSubscribers.find(eventType);
+			if (it != mSubscribers.end())
+			{
+				auto& handlers = it->second;
+				auto handlerIt = std::find(handlers.begin(), handlers.end(), handler);
+				if (handlerIt != handlers.end())
+				{
+					handlers.erase(handlerIt);
+					if (handlers.empty())
+					{
+						mSubscribers.erase(it);
+					}
+				}
+			}
+		}
+
+		void Clear()
+		{
+			std::lock_guard<std::mutex> lock(mMutex);
+			mSubscribers.clear();
+		}
+
+	private:
+		std::mutex mMutex;
+		std::unordered_map<std::type_index, std::vector<ICanHandleEvent*>>
+			mSubscribers;
+	};
+
 
 	// ================ 核心架构接口 ================
 
 	/// @brief 架构核心接口
-	class IArchitecture {
+	class IArchitecture
+	{
 	public:
 		virtual ~IArchitecture() = default;
 
@@ -98,29 +188,123 @@ namespace JFramework {
 			ICanHandleEvent* handler) = 0;
 
 		virtual void Deinit() = 0;
+
+	public:
+
+		template <typename T>
+		void RegisterSystem(std::shared_ptr<T> system)
+		{
+			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
+			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
+		}
+
+		template <typename T>
+		void RegisterModel(std::shared_ptr<T> model)
+		{
+			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
+			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
+		}
+
+		template <typename T>
+		void RegisterUtility(std::shared_ptr<IUtility> utility)
+		{
+			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
+			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
+		}
+
+		template <typename T>
+		std::shared_ptr<T> GetSystem()
+		{
+			auto system = GetSystem(typeid(T));
+			if (!system)
+			{
+				throw ComponentNotRegisteredException(typeid(T).name());
+			}
+			return std::dynamic_pointer_cast<T>(system);
+		}
+
+		template <typename T>
+		std::shared_ptr<T> GetModel()
+		{
+			auto model = GetModel(typeid(T));
+			if (!model)
+			{
+				throw ComponentNotRegisteredException(typeid(T).name());
+			}
+			return std::dynamic_pointer_cast<T>(model);
+		}
+
+		template <typename T>
+		std::shared_ptr<T> GetUtility()
+		{
+			auto utility = GetUtility(typeid(T));
+			if (!utility)
+			{
+				throw ComponentNotRegisteredException(typeid(T).name());
+			}
+			return std::dynamic_pointer_cast<T>(utility);
+		}
+
+		template <typename T>
+		void RegisterEvent(ICanHandleEvent* handler)
+		{
+			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
+			mEventBus->RegisterEvent(typeid(T), handler);
+		}
+
+		template <typename T>
+		void UnRegisterEvent(ICanHandleEvent* handler)
+		{
+			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
+			mEventBus->UnRegisterEvent(typeid(T), handler);
+		}
+
+		template <typename T, typename... Args>
+		void SendEvent(Args&&... args)
+		{
+			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
+			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
+		}
+
+		template <typename T, typename... Args>
+		void SendCommand(Args&&... args)
+		{
+			static_assert(std::is_base_of_v<ICommand, T>, "T must inherit from ICommand");
+			this->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
+		}
+
+	protected:
+		bool mInitialized;
+		std::unique_ptr<IOCContainer> mContainer;
+		std::unique_ptr<EventBus> mEventBus;
 	};
 
 	// ================ 基础接口 ================
 
 	// 可注销接口
-	class IUnRegister {
+	class IUnRegister
+	{
 	public:
 		virtual ~IUnRegister() = default;
 		virtual void UnRegister() = 0;
 	};
 
-	class UnRegisterTrigger {
+	class UnRegisterTrigger
+	{
 	public:
 		virtual ~UnRegisterTrigger() { this->UnRegister(); }
 
-		void AddUnRegister(std::shared_ptr<IUnRegister> unRegister) {
+		void AddUnRegister(std::shared_ptr<IUnRegister> unRegister)
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mUnRegisters.push_back(std::move(unRegister));
 		}
 
-		void UnRegister() {
+		void UnRegister()
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			for (auto& unRegister : mUnRegisters) {
+			for (auto& unRegister : mUnRegisters)
+			{
 				unRegister->UnRegister();
 			}
 			mUnRegisters.clear();
@@ -133,26 +317,33 @@ namespace JFramework {
 
 	template <typename T>
 	class AutoUnRegister : public IUnRegister,
-		public std::enable_shared_from_this<AutoUnRegister<T>> {
+		public std::enable_shared_from_this<AutoUnRegister<T>>
+	{
 	public:
 		AutoUnRegister(int id, BindableProperty<T>* property,
 			std::function<void(T)> callback)
-			: mProperty(property), mCallback(std::move(callback)), mId(id) {
+			: mProperty(property), mCallback(std::move(callback)), mId(id)
+		{
 		}
-		void UnRegisterWhenObjectDestroyed(UnRegisterTrigger* unRegisterTrigger) {
+		void UnRegisterWhenObjectDestroyed(UnRegisterTrigger* unRegisterTrigger)
+		{
 			unRegisterTrigger->AddUnRegister(this->shared_from_this());
 		}
 		int GetId() const { return mId; }
 
-		void UnRegister() override {
-			if (mProperty) {
+		void UnRegister() override
+		{
+			if (mProperty)
+			{
 				mProperty->UnRegister(mId);
 				mProperty = nullptr;  // 防止重复调用
 			}
 		}
 
-		void Invoke(T value) {
-			if (mCallback) {
+		void Invoke(T value)
+		{
+			if (mCallback)
+			{
 				mCallback(std::move(value));
 			}
 		}
@@ -167,13 +358,15 @@ namespace JFramework {
 
 	// 可观察属性类
 	template <typename T>
-	class BindableProperty {
+	class BindableProperty
+	{
 	public:
 		BindableProperty() = default;
 
 		explicit BindableProperty(const T& value) : mValue(std::move(value)) {}
 
-		~BindableProperty() {
+		~BindableProperty()
+		{
 			// 确保所有观察者都被释放
 			std::lock_guard<std::mutex> lock(mMutex);
 			mObservers.clear();
@@ -183,7 +376,8 @@ namespace JFramework {
 		const T& GetValue() const { return mValue; }
 
 		// 设置新值
-		void SetValue(const T& newValue) {
+		void SetValue(const T& newValue)
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			if (mValue == newValue) return;
 			mValue = newValue;
@@ -191,21 +385,24 @@ namespace JFramework {
 		}
 
 		// 不触发通知的设置
-		void SetValueWithoutEvent(const T& newValue) {
+		void SetValueWithoutEvent(const T& newValue)
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mValue = newValue;
 		}
 
 		// 注册观察者（带初始值通知）
 		std::shared_ptr<AutoUnRegister<T>> RegisterWithInitValue(
-			std::function<void(const T&)> onValueChanged) {
+			std::function<void(const T&)> onValueChanged)
+		{
 			onValueChanged(mValue);
 			return Register(std::move(onValueChanged));
 		}
 
 		// 注册观察者
 		std::shared_ptr<AutoUnRegister<T>> Register(
-			std::function<void(const T&)> onValueChanged) {
+			std::function<void(const T&)> onValueChanged)
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			auto unRegister = std::make_shared<AutoUnRegister<T>>(
 				mNextId++, this, std::move(onValueChanged));
@@ -214,12 +411,14 @@ namespace JFramework {
 		}
 
 		// 注销观察者
-		void UnRegister(int id) {
+		void UnRegister(int id)
+		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mObservers.erase(
 				std::remove_if(
 					mObservers.begin(), mObservers.end(),
-					[id](const std::shared_ptr<AutoUnRegister<T>>& observer) {
+					[id](const std::shared_ptr<AutoUnRegister<T>>& observer)
+					{
 						return observer->GetId() == id;
 					}),
 				mObservers.end());
@@ -227,16 +426,19 @@ namespace JFramework {
 
 		// 操作符重载，方便使用
 		operator T() const { return mValue; }
-		BindableProperty<T>& operator=(const T& newValue) {
+		BindableProperty<T>& operator=(const T& newValue)
+		{
 			SetValue(std::move(newValue));
 			return *this;
 		}
 
 	private:
 		// 通知所有观察者
-		void Trigger() {
+		void Trigger()
+		{
 			// 通知有效的观察者
-			for (auto& observer : mObservers) {
+			for (auto& observer : mObservers)
+			{
 				observer->Invoke(mValue);
 			}
 		}
@@ -247,7 +449,8 @@ namespace JFramework {
 	};
 
 	/// @brief 初始化接口
-	class ICanInit {
+	class ICanInit
+	{
 	public:
 		bool IsInitialized() const { return mInitialized; }
 		void SetInitialized(bool initialized) { mInitialized = initialized; }
@@ -260,14 +463,16 @@ namespace JFramework {
 	};
 
 	/// @brief 架构归属接口
-	class IBelongToArchitecture {
+	class IBelongToArchitecture
+	{
 	public:
 		virtual ~IBelongToArchitecture() = default;
 		virtual std::weak_ptr<IArchitecture> GetArchitecture() const = 0;
 	};
 
 	/// @brief 架构设置接口
-	class ICanSetArchitecture {
+	class ICanSetArchitecture
+	{
 	public:
 		virtual ~ICanSetArchitecture() = default;
 		virtual void SetArchitecture(std::shared_ptr<IArchitecture> architecture) = 0;
@@ -276,23 +481,28 @@ namespace JFramework {
 	// ================ 功能接口 ================
 
 	/// @brief 获取Model能力
-	class ICanGetModel : public IBelongToArchitecture {
+	class ICanGetModel : public IBelongToArchitecture
+	{
 	public:
 		template <typename T>
-		std::shared_ptr<T> GetModel() {
+		std::shared_ptr<T> GetModel()
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
 			auto model = arch->GetModel(typeid(T));
-			if (!model) {
+			if (!model)
+			{
 				throw std::runtime_error("Model not registered: " +
 					std::string(typeid(T).name()));
 			}
 
 			auto casted = std::dynamic_pointer_cast<T>(model);
-			if (!casted) {
+			if (!casted)
+			{
 				throw std::bad_cast();
 			}
 
@@ -301,23 +511,28 @@ namespace JFramework {
 	};
 
 	/// @brief 获取System能力
-	class ICanGetSystem : public IBelongToArchitecture {
+	class ICanGetSystem : public IBelongToArchitecture
+	{
 	public:
 		template <typename T>
-		std::shared_ptr<T> GetSystem() {
+		std::shared_ptr<T> GetSystem()
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
 			auto system = arch->GetSystem(typeid(T));
-			if (!system) {
+			if (!system)
+			{
 				throw std::runtime_error("System not registered: " +
 					std::string(typeid(T).name()));
 			}
 
 			auto casted = std::dynamic_pointer_cast<T>(system);
-			if (!casted) {
+			if (!casted)
+			{
 				throw std::bad_cast();
 			}
 
@@ -326,20 +541,25 @@ namespace JFramework {
 	};
 
 	/// @brief 发送Command能力
-	class ICanSendCommand : public IBelongToArchitecture {
+	class ICanSendCommand : public IBelongToArchitecture
+	{
 	public:
 		template <typename T, typename... Args>
-		void SendCommand(Args&&... args) {
+		void SendCommand(Args&&... args)
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
-			arch->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
+			arch->SendCommand<T>(std::forward<Args>(args)...);
 		}
 
-		void SendCommand(std::unique_ptr<ICommand> command) {
+		void SendCommand(std::unique_ptr<ICommand> command)
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(command).name());
 			}
 			arch->SendCommand(std::move(command));
@@ -347,17 +567,20 @@ namespace JFramework {
 	};
 
 	/// @brief 发送Command能力
-	class ICanSendQuery : public IBelongToArchitecture {
+	class ICanSendQuery : public IBelongToArchitecture
+	{
 	public:
 		template <typename TQuery, typename... Args>
-		auto SendQuery(Args&&... args) -> decltype(std::declval<TQuery>().Do()) {
+		auto SendQuery(Args&&... args) -> decltype(std::declval<TQuery>().Do())
+		{
 			static_assert(
 				std::is_base_of_v<IQuery<decltype(std::declval<TQuery>().Do())>,
 				TQuery>,
 				"TQuery must inherit from IQuery");
 
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(TQuery).name());
 			}
 
@@ -369,14 +592,16 @@ namespace JFramework {
 
 		template <typename TQuery>
 		auto SendQuery(std::unique_ptr<TQuery> query)
-			-> decltype(std::declval<TQuery>().Do()) {
+			-> decltype(std::declval<TQuery>().Do())
+		{
 			static_assert(
 				std::is_base_of_v<IQuery<decltype(std::declval<TQuery>().Do())>,
 				TQuery>,
 				"TQuery must inherit from IQuery");
 
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(TQuery).name());
 			}
 
@@ -385,23 +610,28 @@ namespace JFramework {
 		}
 	};
 
-	class ICanGetUtility : public IBelongToArchitecture {
+	class ICanGetUtility : public IBelongToArchitecture
+	{
 	public:
 		template <typename T>
-		std::shared_ptr<T> GetUtility() {
+		std::shared_ptr<T> GetUtility()
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
 			auto utility = arch->GetUtility(typeid(T));
-			if (!utility) {
+			if (!utility)
+			{
 				throw std::runtime_error("Utility not registered: " +
 					std::string(typeid(T).name()));
 			}
 
 			auto casted = std::dynamic_pointer_cast<T>(utility);
-			if (!casted) {
+			if (!casted)
+			{
 				throw std::bad_cast();
 			}
 
@@ -412,32 +642,31 @@ namespace JFramework {
 	// ================ 事件注册能力接口 ================
 
 	/// @brief 发送Event能力
-	class ICanSendEvent : public IBelongToArchitecture {
+	class ICanSendEvent : public IBelongToArchitecture
+	{
 	public:
 		template <typename T, typename... Args>
-		void SendEvent(Args&&... args) {
+		void SendEvent(Args&&... args)
+		{
 			auto arch = GetArchitecture().lock();
-			if (!arch) {
+			if (!arch)
+			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 			arch->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
 		}
 	};
 
-	/// @brief 处理Event能力
-	class ICanHandleEvent {
-	public:
-		virtual ~ICanHandleEvent() = default;
-		virtual void HandleEvent(std::shared_ptr<IEvent> event) = 0;
-	};
 
 	/// @brief 注册/注销事件处理能力
-	class ICanRegisterEvent : public IBelongToArchitecture {
+	class ICanRegisterEvent : public IBelongToArchitecture
+	{
 	public:
 		virtual ~ICanRegisterEvent() = default;
 
 		template <typename TEvent>
-		void RegisterEvent(ICanHandleEvent* handler) {
+		void RegisterEvent(ICanHandleEvent* handler)
+		{
 			static_assert(std::is_base_of_v<IEvent, TEvent>,
 				"TEvent must inherit from IEvent");
 
@@ -448,7 +677,8 @@ namespace JFramework {
 		}
 
 		template <typename TEvent>
-		void UnRegisterEvent(ICanHandleEvent* handler) {
+		void UnRegisterEvent(ICanHandleEvent* handler)
+		{
 			static_assert(std::is_base_of_v<IEvent, TEvent>,
 				"TEvent must inherit from IEvent");
 
@@ -461,12 +691,6 @@ namespace JFramework {
 
 	// ================ 核心组件接口 ================
 
-	/// @brief 事件接口
-	class IEvent {
-	public:
-		virtual ~IEvent() = default;
-		virtual std::string GetEventType() const = 0;
-	};
 
 	/// @brief 命令接口
 	class ICommand : public ICanSetArchitecture,
@@ -475,7 +699,8 @@ namespace JFramework {
 		public ICanSendCommand,
 		public ICanSendEvent,
 		public ICanSendQuery,
-		public ICanGetUtility {
+		public ICanGetUtility
+	{
 	public:
 		virtual ~ICommand() override = default;
 		virtual void Execute() = 0;
@@ -486,7 +711,8 @@ namespace JFramework {
 		public ICanInit,
 		public ICanSendEvent,
 		public ICanSendQuery,
-		public ICanGetUtility {
+		public ICanGetUtility
+	{
 	};
 
 	/// @brief System接口
@@ -498,7 +724,8 @@ namespace JFramework {
 		public ICanRegisterEvent,
 		public ICanSendEvent,
 		public ICanSendQuery,
-		public ICanGetUtility {
+		public ICanGetUtility
+	{
 	};
 
 	// @brief Controller接口
@@ -509,7 +736,8 @@ namespace JFramework {
 		public ICanHandleEvent,
 		public ICanRegisterEvent,
 		public ICanSendQuery,
-		public ICanGetUtility {
+		public ICanGetUtility
+	{
 	};
 
 	/// @brief Query接口
@@ -517,7 +745,8 @@ namespace JFramework {
 	class IQuery : public ICanSetArchitecture,
 		public ICanGetModel,
 		public ICanGetSystem,
-		public ICanSendQuery {
+		public ICanSendQuery
+	{
 	public:
 		virtual ~IQuery() override = default;
 		virtual TResult Do() = 0;
@@ -528,10 +757,12 @@ namespace JFramework {
 	// ================ 实现类 ================
 
 	/// @brief IOC容器实现
-	class IOCContainer {
+	class IOCContainer
+	{
 	public:
 		template <typename T, typename TBase>
-		void Register(std::type_index typeId, std::shared_ptr<TBase> component) {
+		void Register(std::type_index typeId, std::shared_ptr<TBase> component)
+		{
 			static_assert(std::is_base_of_v<TBase, T>, "T must inherit from TBase");
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
@@ -539,7 +770,8 @@ namespace JFramework {
 		}
 
 		template <typename TBase>
-		std::shared_ptr<TBase> Get(std::type_index typeId) {
+		std::shared_ptr<TBase> Get(std::type_index typeId)
+		{
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			auto it = container.find(typeId);
@@ -547,17 +779,20 @@ namespace JFramework {
 		}
 
 		template <typename TBase>
-		std::vector<std::shared_ptr<TBase>> GetAll() {
+		std::vector<std::shared_ptr<TBase>> GetAll()
+		{
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			std::vector<std::shared_ptr<TBase>> result;
-			for (auto& pair : container) {
+			for (auto& pair : container)
+			{
 				result.push_back(pair.second);
 			}
 			return result;
 		}
 
-		void Clear() {
+		void Clear()
+		{
 			std::lock_guard<std::mutex> lock1(mModelMutex);
 			std::lock_guard<std::mutex> lock2(mSystemMutex);
 			std::lock_guard<std::mutex> lock3(mUtilityMutex);
@@ -587,213 +822,132 @@ namespace JFramework {
 		std::mutex mUtilityMutex;
 	};
 
-	/// @brief 事件总线实现
-	class EventBus {
-	public:
-		void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler) {
-			std::lock_guard<std::mutex> lock(mMutex);
-			mSubscribers[eventType].push_back(handler);
-		}
-
-		void SendEvent(std::shared_ptr<IEvent> event) {
-			std::vector<ICanHandleEvent*> subscribers;
-			{
-				std::lock_guard<std::mutex> lock(mMutex);
-				auto it = mSubscribers.find(typeid(*event));
-				if (it != mSubscribers.end()) {
-					subscribers = it->second;
-				}
-			}
-
-			for (auto& handler : subscribers) {
-				try {
-					handler->HandleEvent(event);
-				}
-				catch (const std::exception&) {
-				}
-			}
-		}
-
-		void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler) {
-			std::lock_guard<std::mutex> lock(mMutex);
-			auto it = mSubscribers.find(eventType);
-			if (it != mSubscribers.end()) {
-				auto& handlers = it->second;
-				auto handlerIt = std::find(handlers.begin(), handlers.end(), handler);
-				if (handlerIt != handlers.end()) {
-					handlers.erase(handlerIt);
-					if (handlers.empty()) {
-						mSubscribers.erase(it);
-					}
-				}
-			}
-		}
-
-		void Clear() {
-			std::lock_guard<std::mutex> lock(mMutex);
-			mSubscribers.clear();
-		}
-
-	private:
-		std::mutex mMutex;
-		std::unordered_map<std::type_index, std::vector<ICanHandleEvent*>>
-			mSubscribers;
-	};
-
 	/// @brief 架构基础实现
 	class Architecture : public IArchitecture,
-		public std::enable_shared_from_this<Architecture> {
+		public std::enable_shared_from_this<Architecture>
+	{
+	public:
+		// 引入 IArchitecture 的模板方法
+		using IArchitecture::RegisterSystem;
+		using IArchitecture::RegisterModel;
+		using IArchitecture::RegisterUtility;
+		using IArchitecture::GetSystem;
+		using IArchitecture::GetModel;
+		using IArchitecture::GetUtility;
+		using IArchitecture::RegisterEvent;
+		using IArchitecture::UnRegisterEvent;
+		using IArchitecture::SendEvent;
+		using IArchitecture::SendCommand;
+
 	public:
 
 		// ----------------------------------System--------------------------------------//
 
 		void RegisterSystem(std::type_index typeId,
-			std::shared_ptr<ISystem> system) override {
-			if (!system) {
+			std::shared_ptr<ISystem> system) override
+		{
+			if (!system)
+			{
 				throw std::invalid_argument("System cannot be null");
 			}
 			system->SetArchitecture(shared_from_this());
 			mContainer->Register<ISystem>(typeId, system);
-			if (mInitialized) {
+			if (mInitialized)
+			{
 				InitializeComponent(system);
 			}
 		}
 
-		template <typename T>
-		void RegisterSystem(std::shared_ptr<T> system) {
-			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
-			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
-		}
-
-		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override {
+		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override
+		{
 			return mContainer->Get<ISystem>(typeId);
-		}
-
-		template <typename T>
-		std::shared_ptr<T> GetSystem() {
-			auto system = GetSystem(typeid(T));
-			if (!system) {
-				throw ComponentNotRegisteredException(typeid(T).name());
-			}
-			return std::dynamic_pointer_cast<T>(system);
 		}
 
 		// ----------------------------------Model--------------------------------------//
 
 		void RegisterModel(std::type_index typeId,
-			std::shared_ptr<IModel> model) override {
-			if (!model) {
+			std::shared_ptr<IModel> model) override
+		{
+			if (!model)
+			{
 				throw std::invalid_argument("Model cannot be null");
 			}
 			model->SetArchitecture(shared_from_this());
 			mContainer->Register<IModel>(typeId, model);
-			if (mInitialized) {
+			if (mInitialized)
+			{
 				InitializeComponent(model);
 			}
 		}
 
-		template <typename T>
-		void RegisterModel(std::shared_ptr<T> model) {
-			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
-			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
-		}
-
-		std::shared_ptr<IModel> GetModel(std::type_index typeId) override {
+		std::shared_ptr<IModel> GetModel(std::type_index typeId) override
+		{
 			return mContainer->Get<IModel>(typeId);
-		}
-
-		template <typename T>
-		std::shared_ptr<T> GetModel() {
-			auto model = GetModel(typeid(T));
-			if (!model) {
-				throw ComponentNotRegisteredException(typeid(T).name());
-			}
-			return std::dynamic_pointer_cast<T>(model);
 		}
 
 		// ----------------------------------Utility--------------------------------------//
 
 		void RegisterUtility(std::type_index typeId,
-			std::shared_ptr<IUtility> utility) override {
+			std::shared_ptr<IUtility> utility) override
+		{
 			mContainer->Register<IUtility>(typeId, utility);
 		}
 
-		template <typename T>
-		void RegisterUtility(std::shared_ptr<IUtility> utility) {
-			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
-			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
-		}
-
-		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override {
+		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override
+		{
 			return mContainer->Get<IUtility>(typeId);
-		}
-
-		template <typename T>
-		std::shared_ptr<T> GetUtility() {
-			auto utility = GetUtility(typeid(T));
-			if (!utility) {
-				throw ComponentNotRegisteredException(typeid(T).name());
-			}
-			return std::dynamic_pointer_cast<T>(utility);
 		}
 
 		// ----------------------------------Command--------------------------------------//
 
-		void SendCommand(std::unique_ptr<ICommand> command) override {
-			if (!command) {
+		void SendCommand(std::unique_ptr<ICommand> command) override
+		{
+			if (!command)
+			{
 				throw std::invalid_argument("Command cannot be null");
 			}
 			command->SetArchitecture(shared_from_this());
-			try {
+			try
+			{
 				command->Execute();
 			}
-			catch (const std::exception&) {
+			catch (const std::exception&)
+			{
 			}
 		}
 
 		// ----------------------------------Event--------------------------------------//
 
 		void RegisterEvent(std::type_index eventType,
-			ICanHandleEvent* handler) override {
+			ICanHandleEvent* handler) override
+		{
 			mEventBus->RegisterEvent(eventType, handler);
 		}
 
-		template <typename T>
-		void RegisterEvent(ICanHandleEvent* handler) {
-			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
-			mEventBus->RegisterEvent(typeid(T), handler);
-		}
-
 		void UnRegisterEvent(std::type_index eventType,
-			ICanHandleEvent* handler) override {
+			ICanHandleEvent* handler) override
+		{
 			mEventBus->UnRegisterEvent(eventType, handler);
 		}
 
-		template <typename T>
-		void UnRegisterEvent(ICanHandleEvent* handler) {
-			mEventBus->UnRegisterEvent(typeid(T), handler);
-		}
-
-		void SendEvent(std::shared_ptr<IEvent> event) override {
-			if (!event) {
+		void SendEvent(std::shared_ptr<IEvent> event) override
+		{
+			if (!event)
+			{
 				throw std::invalid_argument("Event cannot be null");
 			}
 			mEventBus->SendEvent(event);
 		}
 
-		template <typename T, typename... Args>
-		void SendEvent(Args&&... args) {
-			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
-		}
-
-		// ----------------------------------Query--------------------------------------//
 
 		template <typename TQuery>
-		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do()) {
+		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do())
+		{
 			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, TQuery>,
 				"TQuery must inherit from IQuery");
 
-			if (!query) {
+			if (!query)
+			{
 				throw std::invalid_argument("Query cannot be null");
 			}
 			query->SetArchitecture(shared_from_this());
@@ -802,34 +956,40 @@ namespace JFramework {
 
 		// ----------------------------------Init--------------------------------------//
 
-		void Deinit() override {
+		void Deinit() override
+		{
 			if (!mInitialized) return;
 
 			mInitialized = false;
 
 			this->OnDeinit();
 
-			for (auto& model : mContainer->GetAll<IModel>()) {
+			for (auto& model : mContainer->GetAll<IModel>())
+			{
 				UnInitializeComponent(model);
 			}
 
-			for (auto& system : mContainer->GetAll<ISystem>()) {
+			for (auto& system : mContainer->GetAll<ISystem>())
+			{
 				UnInitializeComponent(system);
 			}
 		}
 
-		virtual void InitArchitecture() {
+		virtual void InitArchitecture()
+		{
 			if (mInitialized) return;
 
 			mInitialized = true;
 
 			this->Init();
 
-			for (auto& model : mContainer->GetAll<IModel>()) {
+			for (auto& model : mContainer->GetAll<IModel>())
+			{
 				InitializeComponent(model);
 			}
 
-			for (auto& system : mContainer->GetAll<ISystem>()) {
+			for (auto& system : mContainer->GetAll<ISystem>())
+			{
 				InitializeComponent(system);
 			}
 		}
@@ -837,18 +997,16 @@ namespace JFramework {
 		IOCContainer* GetContainer() { return mContainer.get(); }
 
 	protected:
-		bool mInitialized;
-
-		std::unique_ptr<IOCContainer> mContainer;
-		std::unique_ptr<EventBus> mEventBus;
 		// 私有构造函数
-		Architecture() {
+		Architecture()
+		{
 			mContainer = std::make_unique<IOCContainer>();
 			mEventBus = std::make_unique<EventBus>();
 			mInitialized = false;
 		}
 
-		virtual ~Architecture() {
+		virtual ~Architecture()
+		{
 			OutputDebugString(L"~Architecture successfully\n");
 		}
 
@@ -858,22 +1016,26 @@ namespace JFramework {
 
 	private:
 		template <typename TComponent>
-		void InitializeComponent(std::shared_ptr<TComponent> component) {
+		void InitializeComponent(std::shared_ptr<TComponent> component)
+		{
 			static_assert(std::is_base_of_v<ICanInit, TComponent>,
 				"Component must implement ICanInit");
 
-			if (!component->IsInitialized()) {
+			if (!component->IsInitialized())
+			{
 				component->Init();
 				component->SetInitialized(true);
 			}
 		}
 
 		template <typename TComponent>
-		void UnInitializeComponent(std::shared_ptr<TComponent> component) {
+		void UnInitializeComponent(std::shared_ptr<TComponent> component)
+		{
 			static_assert(std::is_base_of_v<ICanInit, TComponent>,
 				"Component must implement ICanInit");
 
-			if (component->IsInitialized()) {
+			if (component->IsInitialized())
+			{
 				component->Deinit();
 				component->SetInitialized(false);
 			}
@@ -883,19 +1045,22 @@ namespace JFramework {
 	// ================ 抽象基类 ================
 
 	/// @brief 抽象Command
-	class AbstractCommand : public ICommand {
+	class AbstractCommand : public ICommand
+	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const final {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final
+		{
 			return mArchitecture;
 		}
 
 		void Execute() final { this->OnExecute(); }
 
 	public:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
+		{
 			mArchitecture = architecture;
 		}
 
@@ -903,12 +1068,14 @@ namespace JFramework {
 		virtual void OnExecute() = 0;
 	};
 
-	class AbstractModel : public IModel {
+	class AbstractModel : public IModel
+	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const final {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final
+		{
 			return mArchitecture;
 		}
 
@@ -917,7 +1084,8 @@ namespace JFramework {
 		void Deinit() final { this->OnDeinit(); }
 
 	private:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
+		{
 			mArchitecture = architecture;
 		}
 
@@ -926,12 +1094,14 @@ namespace JFramework {
 		virtual void OnDeinit() = 0;
 	};
 
-	class AbstractSystem : public ISystem {
+	class AbstractSystem : public ISystem
+	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const final {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final
+		{
 			return mArchitecture;
 		}
 
@@ -942,7 +1112,8 @@ namespace JFramework {
 		void HandleEvent(std::shared_ptr<IEvent> event) final { OnEvent(event); }
 
 	private:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
+		{
 			mArchitecture = architecture;
 		}
 
@@ -952,7 +1123,8 @@ namespace JFramework {
 		virtual void OnEvent(std::shared_ptr<IEvent> event) = 0;
 	};
 
-	class AbstractController : public IController {
+	class AbstractController : public IController
+	{
 	private:
 		void HandleEvent(std::shared_ptr<IEvent> event) final { OnEvent(event); }
 
@@ -961,19 +1133,22 @@ namespace JFramework {
 	};
 
 	template <typename TResult>
-	class AbstractQuery : public IQuery<TResult> {
+	class AbstractQuery : public IQuery<TResult>
+	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
 
 	public:
-		std::weak_ptr<IArchitecture> GetArchitecture() const final {
+		std::weak_ptr<IArchitecture> GetArchitecture() const final
+		{
 			return mArchitecture;
 		}
 
 		TResult Do() final { return OnDo(); }
 
 	public:
-		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final {
+		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
+		{
 			mArchitecture = architecture;
 		}
 
