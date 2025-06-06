@@ -191,7 +191,10 @@ namespace JFramework {
 		}
 
 		// 不触发通知的设置
-		void SetValueWithoutEvent(const T& newValue) { mValue = newValue; }
+		void SetValueWithoutEvent(const T& newValue) { 
+			std::lock_guard<std::mutex> lock(mMutex);
+			mValue = newValue; 
+		}
 
 		// 注册观察者（带初始值通知）
 		std::shared_ptr<AutoUnRegister<T>> RegisterWithInitValue(
