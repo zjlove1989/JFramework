@@ -932,7 +932,7 @@ namespace JFramework
 
 		// ----------------------------------Init--------------------------------------//
 
-		void Deinit() override
+		void Deinit() final
 		{
 			if (!mInitialized) return;
 
@@ -988,10 +988,10 @@ namespace JFramework
 		virtual void OnDeinit() {}
 
 	private:
-		template <typename TComponent>
-		void InitializeComponent(std::shared_ptr<TComponent> component)
+		template <typename T>
+		void InitializeComponent(std::shared_ptr<T> component)
 		{
-			static_assert(std::is_base_of_v<ICanInit, TComponent>,
+			static_assert(std::is_base_of_v<ICanInit, T>,
 				"Component must implement ICanInit");
 
 			if (!component->IsInitialized())
@@ -1001,10 +1001,10 @@ namespace JFramework
 			}
 		}
 
-		template <typename TComponent>
-		void UnInitializeComponent(std::shared_ptr<TComponent> component)
+		template <typename T>
+		void UnInitializeComponent(std::shared_ptr<T> component)
 		{
-			static_assert(std::is_base_of_v<ICanInit, TComponent>,
+			static_assert(std::is_base_of_v<ICanInit, T>,
 				"Component must implement ICanInit");
 
 			if (component->IsInitialized())
