@@ -72,7 +72,6 @@ namespace JFramework
 	class BindableProperty;
 	class IOCContainer;
 
-
 	/// @brief 事件接口
 	class IEvent
 	{
@@ -80,7 +79,6 @@ namespace JFramework
 		virtual ~IEvent() = default;
 		virtual std::string GetEventType() const = 0;
 	};
-
 
 	/// @brief 处理Event能力
 	class ICanHandleEvent
@@ -154,7 +152,6 @@ namespace JFramework
 		std::unordered_map<std::type_index, std::vector<ICanHandleEvent*>>
 			mSubscribers;
 	};
-
 
 	// ================ 核心架构接口 ================
 
@@ -493,20 +490,8 @@ namespace JFramework
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
-			auto model = arch->GetModel(typeid(T));
-			if (!model)
-			{
-				throw std::runtime_error("Model not registered: " +
-					std::string(typeid(T).name()));
-			}
-
-			auto casted = std::dynamic_pointer_cast<T>(model);
-			if (!casted)
-			{
-				throw std::bad_cast();
-			}
-
-			return casted;
+			auto model = arch->GetModel<T>();
+			return model;
 		}
 	};
 
@@ -523,20 +508,8 @@ namespace JFramework
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
-			auto system = arch->GetSystem(typeid(T));
-			if (!system)
-			{
-				throw std::runtime_error("System not registered: " +
-					std::string(typeid(T).name()));
-			}
-
-			auto casted = std::dynamic_pointer_cast<T>(system);
-			if (!casted)
-			{
-				throw std::bad_cast();
-			}
-
-			return casted;
+			auto system = arch->GetSystem<T>();
+			return system;
 		}
 	};
 
@@ -622,20 +595,8 @@ namespace JFramework
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
 
-			auto utility = arch->GetUtility(typeid(T));
-			if (!utility)
-			{
-				throw std::runtime_error("Utility not registered: " +
-					std::string(typeid(T).name()));
-			}
-
-			auto casted = std::dynamic_pointer_cast<T>(utility);
-			if (!casted)
-			{
-				throw std::bad_cast();
-			}
-
-			return casted;
+			auto utility = arch->GetUtility<T>();
+			return utility;
 		}
 	};
 
@@ -653,10 +614,9 @@ namespace JFramework
 			{
 				throw ArchitectureNotSetException(typeid(T).name());
 			}
-			arch->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
+			arch->SendEvent<T>(std::forward<Args>(args)...);
 		}
 	};
-
 
 	/// @brief 注册/注销事件处理能力
 	class ICanRegisterEvent : public IBelongToArchitecture
@@ -664,33 +624,38 @@ namespace JFramework
 	public:
 		virtual ~ICanRegisterEvent() = default;
 
-		template <typename TEvent>
+		template <typename T>
 		void RegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, TEvent>,
-				"TEvent must inherit from IEvent");
+			static_assert(std::is_base_of_v<IEvent, T>,
+				"T must inherit from IEvent");
 
 			auto arch = GetArchitecture().lock();
-			if (!arch) throw ArchitectureNotSetException(typeid(TEvent).name());
+			if (!arch)
+			{
+				throw ArchitectureNotSetException(typeid(T).name());
+			}
 
-			arch->RegisterEvent(typeid(TEvent), handler);
+			arch->RegisterEvent<T>(handler);
 		}
 
-		template <typename TEvent>
+		template <typename T>
 		void UnRegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, TEvent>,
-				"TEvent must inherit from IEvent");
+			static_assert(std::is_base_of_v<IEvent, T>,
+				"T must inherit from IEvent");
 
 			auto arch = GetArchitecture().lock();
-			if (!arch) throw ArchitectureNotSetException(typeid(TEvent).name());
+			if (!arch)
+			{
+				throw ArchitectureNotSetException(typeid(T).name());
+			}
 
-			arch->UnRegisterEvent(typeid(TEvent), handler);
+			arch->UnRegisterEvent<T>(handler);
 		}
 	};
 
 	// ================ 核心组件接口 ================
-
 
 	/// @brief 命令接口
 	class ICommand : public ICanSetArchitecture,
@@ -938,7 +903,6 @@ namespace JFramework
 			}
 			mEventBus->SendEvent(event);
 		}
-
 
 		template <typename TQuery>
 		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do())
