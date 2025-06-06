@@ -886,12 +886,20 @@ namespace JFramework
 		void RegisterEvent(std::type_index eventType,
 			ICanHandleEvent* handler) override
 		{
+			if (!handler)
+			{
+				throw std::invalid_argument("ICanHandleEvent cannot be null");
+			}
 			mEventBus->RegisterEvent(eventType, handler);
 		}
 
 		void UnRegisterEvent(std::type_index eventType,
 			ICanHandleEvent* handler) override
 		{
+			if (!handler)
+			{
+				throw std::invalid_argument("ICanHandleEvent cannot be null");
+			}
 			mEventBus->UnRegisterEvent(eventType, handler);
 		}
 
@@ -969,10 +977,7 @@ namespace JFramework
 			mInitialized = false;
 		}
 
-		virtual ~Architecture()
-		{
-			OutputDebugString(L"~Architecture successfully\n");
-		}
+		virtual ~Architecture() = default;
 
 		virtual void Init() = 0;
 
