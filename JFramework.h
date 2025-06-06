@@ -912,6 +912,7 @@ namespace JFramework
 			mEventBus->SendEvent(event);
 		}
 
+
 		template <typename TQuery>
 		auto SendQuery(std::unique_ptr<TQuery> query) -> decltype(query->Do())
 		{
@@ -924,6 +925,16 @@ namespace JFramework
 			}
 			query->SetArchitecture(shared_from_this());
 			return query->Do();
+		}
+
+		template <typename TQuery, typename... Args>
+		auto SendQuery(Args&&... args) -> decltype(std::declval<TQuery>()->Do())
+		{
+			static_assert(std::is_base_of_v<IQuery<decltype(std::declval<TQuery>()->Do())>, TQuery>,
+				"TQuery must inherit from IQuery");
+
+			auto query = std::make_unique<TQuery>(std::forward<Args>(args)...);
+			return this->SendQuery(query);
 		}
 
 		// ----------------------------------Init--------------------------------------//
