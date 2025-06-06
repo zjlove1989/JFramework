@@ -819,7 +819,7 @@ namespace JFramework
 
 	public:
 		// й╣ож GetSharedPtr()
-		std::shared_ptr<IArchitecture> GetSharedFromThis() override
+		std::shared_ptr<IArchitecture> GetSharedFromThis() final
 		{
 			return shared_from_this();
 		}
