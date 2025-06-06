@@ -731,7 +731,11 @@ namespace JFramework
 		virtual T Do() = 0;
 	};
 
-	class IUtility {};
+	class IUtility
+	{
+	public:
+		virtual ~IUtility() = default; // 添加虚析构函数
+	};
 
 	// ================ 实现类 ================
 
