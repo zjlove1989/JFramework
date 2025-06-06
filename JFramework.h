@@ -163,7 +163,6 @@ namespace JFramework
 		// 新增方法，用于派生类实现 shared_from_this()
 		virtual std::shared_ptr<IArchitecture> GetSharedFromThis() = 0;
 
-
 		// 注册组件
 		virtual void RegisterSystem(std::type_index typeId,
 			std::shared_ptr<ISystem> system) = 0;
@@ -273,7 +272,6 @@ namespace JFramework
 			this->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
 		}
 
-
 		// ----------------------------------Query--------------------------------------//
 		template <typename T>
 		auto SendQuery(std::unique_ptr<T> query) -> decltype(query->Do())
@@ -298,7 +296,6 @@ namespace JFramework
 			auto query = std::make_unique<T>(std::forward<Args>(args)...);
 			return this->SendQuery(std::move(query));
 		}
-
 
 	protected:
 		bool mInitialized = false;
