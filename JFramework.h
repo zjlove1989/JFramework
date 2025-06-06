@@ -340,11 +340,11 @@ namespace JFramework
 	};
 
 	template <typename T>
-	class AutoUnRegister : public IUnRegister,
-		public std::enable_shared_from_this<AutoUnRegister<T>>
+	class BindablePropertyUnRegister : public IUnRegister,
+		public std::enable_shared_from_this<BindablePropertyUnRegister<T>>
 	{
 	public:
-		AutoUnRegister(int id, BindableProperty<T>* property,
+		BindablePropertyUnRegister(int id, BindableProperty<T>* property,
 			std::function<void(T)> callback)
 			: mProperty(property), mCallback(std::move(callback)), mId(id)
 		{
@@ -416,7 +416,7 @@ namespace JFramework
 		}
 
 		// 注册观察者（带初始值通知）
-		std::shared_ptr<AutoUnRegister<T>> RegisterWithInitValue(
+		std::shared_ptr<BindablePropertyUnRegister<T>> RegisterWithInitValue(
 			std::function<void(const T&)> onValueChanged)
 		{
 			onValueChanged(mValue);
@@ -424,11 +424,11 @@ namespace JFramework
 		}
 
 		// 注册观察者
-		std::shared_ptr<AutoUnRegister<T>> Register(
+		std::shared_ptr<BindablePropertyUnRegister<T>> Register(
 			std::function<void(const T&)> onValueChanged)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			auto unRegister = std::make_shared<AutoUnRegister<T>>(
+			auto unRegister = std::make_shared<BindablePropertyUnRegister<T>>(
 				mNextId++, this, std::move(onValueChanged));
 			mObservers.push_back(unRegister);
 			return unRegister;
@@ -441,7 +441,7 @@ namespace JFramework
 			mObservers.erase(
 				std::remove_if(
 					mObservers.begin(), mObservers.end(),
-					[id](const std::shared_ptr<AutoUnRegister<T>>& observer)
+					[id](const std::shared_ptr<BindablePropertyUnRegister<T>>& observer)
 					{
 						return observer->GetId() == id;
 					}),
@@ -469,7 +469,7 @@ namespace JFramework
 		std::mutex mMutex;
 		int mNextId = 0;
 		T mValue;
-		std::vector<std::shared_ptr<AutoUnRegister<T>>> mObservers;
+		std::vector<std::shared_ptr<BindablePropertyUnRegister<T>>> mObservers;
 	};
 
 	/// @brief 初始化接口

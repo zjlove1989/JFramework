@@ -1321,7 +1321,7 @@ TEST(PerformanceTest, PropertyNotificationScalability)
 	const int observerCount = 1000;
 	std::atomic<int> notificationCount{ 0 };
 
-	std::vector<std::shared_ptr<AutoUnRegister<int>>> observers;
+	std::vector<std::shared_ptr<BindablePropertyUnRegister<int>>> observers;
 	for (int i = 0; i < observerCount; ++i)
 	{
 		observers.push_back(prop.Register([&](int) { notificationCount++; }));
@@ -1409,7 +1409,7 @@ TEST(MemoryTest, EventHandlerLeak)
 TEST(MemoryTest, PropertyObserverLeak)
 {
 	auto prop = std::make_shared<BindableProperty<int>>(0);
-	std::weak_ptr<AutoUnRegister<int>> weakUnregister;
+	std::weak_ptr<BindablePropertyUnRegister<int>> weakUnregister;
 
 	{
 		auto unregister = prop->Register([](int) {});
