@@ -205,7 +205,7 @@ namespace JFramework
 		}
 
 		template <typename T>
-		void RegisterUtility(std::shared_ptr<IUtility> utility)
+		void RegisterUtility(std::shared_ptr<T> utility)
 		{
 			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
 			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
