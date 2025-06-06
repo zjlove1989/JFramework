@@ -645,7 +645,6 @@ namespace JFramework {
 		public std::enable_shared_from_this<Architecture> {
 	public:
 
-
 		// ----------------------------------System--------------------------------------//
 
 		void RegisterSystem(std::type_index typeId,
@@ -666,7 +665,6 @@ namespace JFramework {
 			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
 		}
 
-
 		std::shared_ptr<ISystem> GetSystem(std::type_index typeId) override {
 			return mContainer->Get<ISystem>(typeId);
 		}
@@ -680,9 +678,7 @@ namespace JFramework {
 			return std::dynamic_pointer_cast<T>(system);
 		}
 
-
 		// ----------------------------------Model--------------------------------------//
-
 
 		void RegisterModel(std::type_index typeId,
 			std::shared_ptr<IModel> model) override {
@@ -702,8 +698,6 @@ namespace JFramework {
 			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
 		}
 
-
-
 		std::shared_ptr<IModel> GetModel(std::type_index typeId) override {
 			return mContainer->Get<IModel>(typeId);
 		}
@@ -719,7 +713,6 @@ namespace JFramework {
 
 		// ----------------------------------Utility--------------------------------------//
 
-
 		void RegisterUtility(std::type_index typeId,
 			std::shared_ptr<IUtility> utility) override {
 			mContainer->Register<IUtility>(typeId, utility);
@@ -730,7 +723,6 @@ namespace JFramework {
 			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
 			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
 		}
-
 
 		std::shared_ptr<IUtility> GetUtility(std::type_index typeId) override {
 			return mContainer->Get<IUtility>(typeId);
@@ -745,8 +737,6 @@ namespace JFramework {
 			return std::dynamic_pointer_cast<T>(utility);
 		}
 
-
-
 		// ----------------------------------Command--------------------------------------//
 
 		void SendCommand(std::unique_ptr<ICommand> command) override {
@@ -760,7 +750,6 @@ namespace JFramework {
 			catch (const std::exception&) {
 			}
 		}
-
 
 		// ----------------------------------Event--------------------------------------//
 
@@ -797,7 +786,6 @@ namespace JFramework {
 			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
 		}
 
-
 		// ----------------------------------Query--------------------------------------//
 
 		template <typename TQuery>
@@ -811,7 +799,6 @@ namespace JFramework {
 			query->SetArchitecture(shared_from_this());
 			return query->Do();
 		}
-
 
 		// ----------------------------------Init--------------------------------------//
 
