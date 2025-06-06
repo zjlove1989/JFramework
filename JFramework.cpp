@@ -1509,6 +1509,85 @@ TEST(ControllerTest, ControllerFunctionality)
 	EXPECT_TRUE(controller.handled);
 }
 
+TEST(BoundaryTest, NullPointerHandling)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+
+	// 测试空指针组件注册
+	EXPECT_THROW(arch->RegisterSystem<TestSystem>(nullptr), std::invalid_argument);
+	EXPECT_THROW(arch->RegisterModel<TestModel>(nullptr), std::invalid_argument);
+
+	// 测试空指针事件发送
+	EXPECT_THROW(arch->SendEvent(nullptr), std::invalid_argument);
+	EXPECT_THROW(arch->SendCommand(nullptr), std::invalid_argument);
+
+	// 测试空指针事件处理器注册
+	EXPECT_THROW(arch->RegisterEvent(typeid(TestEvent), nullptr), std::invalid_argument);
+}
+
+TEST(ConcurrencyTest, ParallelCommandExecution)
+{
+	auto arch = std::make_shared<TestArchitecture>();
+	arch->InitArchitecture();
+
+	const int threadCount = 20;
+	const int commandsPerThread = 100;
+	std::vector<std::thread> threads;
+	std::atomic<int> totalExecutions{ 0 };
+
+	// 创建可计数命令
+	class CountingCommand : public AbstractCommand
+	{
+	public:
+		CountingCommand(std::atomic<int>& counter) : counter(counter) {}
+	protected:
+		void OnExecute() override { counter++; }
+	private:
+		std::atomic<int>& counter;
+	};
+
+	for (int i = 0; i < threadCount; ++i)
+	{
+		threads.emplace_back([&]
+			{
+				for (int j = 0; j < commandsPerThread; ++j)
+				{
+					arch->SendCommand(std::make_unique<CountingCommand>(totalExecutions));
+				}
+			});
+	}
+
+	for (auto& t : threads) t.join();
+	EXPECT_EQ(threadCount * commandsPerThread, totalExecutions.load());
+}
+
+TEST(MemoryTest, ComponentCleanup)
+{
+	std::weak_ptr<IModel> weakModel;
+	std::weak_ptr<ISystem> weakSystem;
+
+	{
+		auto arch = std::make_shared<TestArchitecture>();
+
+		auto model = std::make_shared<TestModel>();
+		auto system = std::make_shared<TestSystem>();
+
+		weakModel = model;
+		weakSystem = system;
+
+		arch->RegisterModel<TestModel>(model);
+		arch->RegisterSystem<TestSystem>(system);
+		arch->InitArchitecture();
+
+		// 显式反初始化
+		arch->Deinit();
+	}
+
+	// 验证组件是否被正确释放
+	EXPECT_TRUE(weakModel.expired());
+	EXPECT_TRUE(weakSystem.expired());
+}
+
 int main(int argc, char** argv)
 {
 	testing::InitGoogleTest(&argc, argv);
