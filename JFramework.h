@@ -1105,8 +1105,8 @@ namespace JFramework
 		virtual void OnEvent(std::shared_ptr<IEvent> event) = 0;
 	};
 
-	template <typename TResult>
-	class AbstractQuery : public IQuery<TResult>
+	template <typename T>
+	class AbstractQuery : public IQuery<T>
 	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
@@ -1117,7 +1117,7 @@ namespace JFramework
 			return mArchitecture;
 		}
 
-		TResult Do() final { return OnDo(); }
+		T Do() final { return OnDo(); }
 
 	public:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
@@ -1126,7 +1126,7 @@ namespace JFramework
 		}
 
 	protected:
-		virtual TResult OnDo() = 0;
+		virtual T OnDo() = 0;
 	};
 };  // namespace JFramework
 
