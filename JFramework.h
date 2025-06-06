@@ -65,7 +65,7 @@ namespace JFramework
 	class ISystem;
 	class IModel;
 	class ICommand;
-	template <typename TResult>
+	template <typename T>
 	class IQuery;
 	class IUtility;
 	template <typename T>
@@ -720,7 +720,7 @@ namespace JFramework
 	};
 
 	/// @brief Query½Ó¿Ú
-	template <typename TResult>
+	template <typename T>
 	class IQuery : public ICanSetArchitecture,
 		public ICanGetModel,
 		public ICanGetSystem,
@@ -728,7 +728,7 @@ namespace JFramework
 	{
 	public:
 		virtual ~IQuery() override = default;
-		virtual TResult Do() = 0;
+		virtual T Do() = 0;
 	};
 
 	class IUtility {};
