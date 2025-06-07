@@ -26,7 +26,7 @@
 #define JFRAMEWORK
 
 #include <windows.h>
-
+#include <tchar.h>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -65,10 +65,10 @@ namespace JFramework
 	class ISystem;
 	class IModel;
 	class ICommand;
-	template <typename T>
+	template <typename _Ty>
 	class IQuery;
 	class IUtility;
-	template <typename T>
+	template <typename _Ty>
 	class BindableProperty;
 	class IOCContainer;
 
@@ -190,94 +190,94 @@ namespace JFramework
 
 	public:
 
-		template <typename T>
-		void RegisterSystem(std::shared_ptr<T> system)
+		template <typename _Ty>
+		void RegisterSystem(std::shared_ptr<_Ty> system)
 		{
-			static_assert(std::is_base_of_v<ISystem, T>, "T must inherit from ISystem");
-			RegisterSystem(typeid(T), std::static_pointer_cast<ISystem>(system));
+			static_assert(std::is_base_of_v<ISystem, _Ty>, "_Ty must inherit from ISystem");
+			RegisterSystem(typeid(_Ty), std::static_pointer_cast<ISystem>(system));
 		}
 
-		template <typename T>
-		void RegisterModel(std::shared_ptr<T> model)
+		template <typename _Ty>
+		void RegisterModel(std::shared_ptr<_Ty> model)
 		{
-			static_assert(std::is_base_of_v<IModel, T>, "T must inherit from IModel");
-			RegisterModel(typeid(T), std::static_pointer_cast<IModel>(model));
+			static_assert(std::is_base_of_v<IModel, _Ty>, "_Ty must inherit from IModel");
+			RegisterModel(typeid(_Ty), std::static_pointer_cast<IModel>(model));
 		}
 
-		template <typename T>
-		void RegisterUtility(std::shared_ptr<T> utility)
+		template <typename _Ty>
+		void RegisterUtility(std::shared_ptr<_Ty> utility)
 		{
-			static_assert(std::is_base_of_v<IUtility, T>, "T must inherit from IUtility");
-			RegisterUtility(typeid(T), std::static_pointer_cast<IUtility>(utility));
+			static_assert(std::is_base_of_v<IUtility, _Ty>, "_Ty must inherit from IUtility");
+			RegisterUtility(typeid(_Ty), std::static_pointer_cast<IUtility>(utility));
 		}
 
-		template <typename T>
-		std::shared_ptr<T> GetSystem()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetSystem()
 		{
-			auto system = GetSystem(typeid(T));
+			auto system = GetSystem(typeid(_Ty));
 			if (!system)
 			{
-				throw ComponentNotRegisteredException(typeid(T).name());
+				throw ComponentNotRegisteredException(typeid(_Ty).name());
 			}
-			return std::dynamic_pointer_cast<T>(system);
+			return std::dynamic_pointer_cast<_Ty>(system);
 		}
 
-		template <typename T>
-		std::shared_ptr<T> GetModel()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetModel()
 		{
-			auto model = GetModel(typeid(T));
+			auto model = GetModel(typeid(_Ty));
 			if (!model)
 			{
-				throw ComponentNotRegisteredException(typeid(T).name());
+				throw ComponentNotRegisteredException(typeid(_Ty).name());
 			}
-			return std::dynamic_pointer_cast<T>(model);
+			return std::dynamic_pointer_cast<_Ty>(model);
 		}
 
-		template <typename T>
-		std::shared_ptr<T> GetUtility()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetUtility()
 		{
-			auto utility = GetUtility(typeid(T));
+			auto utility = GetUtility(typeid(_Ty));
 			if (!utility)
 			{
-				throw ComponentNotRegisteredException(typeid(T).name());
+				throw ComponentNotRegisteredException(typeid(_Ty).name());
 			}
-			return std::dynamic_pointer_cast<T>(utility);
+			return std::dynamic_pointer_cast<_Ty>(utility);
 		}
 
-		template <typename T>
+		template <typename _Ty>
 		void RegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
-			mEventBus->RegisterEvent(typeid(T), handler);
+			static_assert(std::is_base_of_v<IEvent, _Ty>, "_Ty must inherit from IEvent");
+			mEventBus->RegisterEvent(typeid(_Ty), handler);
 		}
 
-		template <typename T>
+		template <typename _Ty>
 		void UnRegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
-			mEventBus->UnRegisterEvent(typeid(T), handler);
+			static_assert(std::is_base_of_v<IEvent, _Ty>, "_Ty must inherit from IEvent");
+			mEventBus->UnRegisterEvent(typeid(_Ty), handler);
 		}
 
-		template <typename T, typename... Args>
+		template <typename _Ty, typename... Args>
 		void SendEvent(Args&&... args)
 		{
-			static_assert(std::is_base_of_v<IEvent, T>, "T must inherit from IEvent");
-			this->SendEvent(std::make_shared<T>(std::forward<Args>(args)...));
+			static_assert(std::is_base_of_v<IEvent, _Ty>, "_Ty must inherit from IEvent");
+			this->SendEvent(std::make_shared<_Ty>(std::forward<Args>(args)...));
 		}
 
-		template <typename T, typename... Args>
+		template <typename _Ty, typename... Args>
 		void SendCommand(Args&&... args)
 		{
-			static_assert(std::is_base_of_v<ICommand, T>, "T must inherit from ICommand");
-			this->SendCommand(std::make_unique<T>(std::forward<Args>(args)...));
+			static_assert(std::is_base_of_v<ICommand, _Ty>, "_Ty must inherit from ICommand");
+			this->SendCommand(std::make_unique<_Ty>(std::forward<Args>(args)...));
 		}
 
 		// ----------------------------------Query--------------------------------------//
-		template <typename T>
-		auto SendQuery(std::unique_ptr<T> query) -> decltype(query->Do())
+		template <typename _Ty>
+		auto SendQuery(std::unique_ptr<_Ty> query) -> decltype(query->Do())
 		{
-			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, T>,
-				"T must inherit from IQuery");
+			static_assert(std::is_base_of_v<IQuery<decltype(query->Do())>, _Ty>,
+				"_Ty must inherit from IQuery");
 
 			if (!query)
 			{
@@ -287,13 +287,13 @@ namespace JFramework
 			return query->Do();
 		}
 
-		template <typename T, typename... Args>
-		auto SendQuery(Args&&... args) -> decltype(std::declval<T>().Do())
+		template <typename _Ty, typename... Args>
+		auto SendQuery(Args&&... args) -> decltype(std::declval<_Ty>().Do())
 		{
-			static_assert(std::is_base_of_v<IQuery<decltype(std::declval<T>().Do())>, T>,
-				"T must inherit from IQuery");
+			static_assert(std::is_base_of_v<IQuery<decltype(std::declval<_Ty>().Do())>, _Ty>,
+				"_Ty must inherit from IQuery");
 
-			auto query = std::make_unique<T>(std::forward<Args>(args)...);
+			auto query = std::make_unique<_Ty>(std::forward<Args>(args)...);
 			return this->SendQuery(std::move(query));
 		}
 
@@ -339,13 +339,13 @@ namespace JFramework
 		std::vector<std::shared_ptr<IUnRegister>> mUnRegisters;
 	};
 
-	template <typename T>
+	template <typename _Ty>
 	class BindablePropertyUnRegister : public IUnRegister,
-		public std::enable_shared_from_this<BindablePropertyUnRegister<T>>
+		public std::enable_shared_from_this<BindablePropertyUnRegister<_Ty>>
 	{
 	public:
-		BindablePropertyUnRegister(int id, BindableProperty<T>* property,
-			std::function<void(T)> callback)
+		BindablePropertyUnRegister(int id, BindableProperty<_Ty>* property,
+			std::function<void(_Ty)> callback)
 			: mProperty(property), mCallback(std::move(callback)), mId(id)
 		{
 		}
@@ -364,7 +364,7 @@ namespace JFramework
 			}
 		}
 
-		void Invoke(T value)
+		void Invoke(_Ty value)
 		{
 			if (mCallback)
 			{
@@ -376,18 +376,18 @@ namespace JFramework
 		int mId;
 
 	private:
-		BindableProperty<T>* mProperty;
-		std::function<void(T)> mCallback;
+		BindableProperty<_Ty>* mProperty;
+		std::function<void(_Ty)> mCallback;
 	};
 
 	// 可观察属性类
-	template <typename T>
+	template <typename _Ty>
 	class BindableProperty
 	{
 	public:
 		BindableProperty() = default;
 
-		explicit BindableProperty(const T& value) : mValue(std::move(value)) {}
+		explicit BindableProperty(const _Ty& value) : mValue(std::move(value)) {}
 
 		~BindableProperty()
 		{
@@ -397,10 +397,10 @@ namespace JFramework
 		}
 
 		// 获取当前值
-		const T& GetValue() const { return mValue; }
+		const _Ty& GetValue() const { return mValue; }
 
 		// 设置新值
-		void SetValue(const T& newValue)
+		void SetValue(const _Ty& newValue)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			if (mValue == newValue) return;
@@ -409,26 +409,26 @@ namespace JFramework
 		}
 
 		// 不触发通知的设置
-		void SetValueWithoutEvent(const T& newValue)
+		void SetValueWithoutEvent(const _Ty& newValue)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mValue = newValue;
 		}
 
 		// 注册观察者（带初始值通知）
-		std::shared_ptr<BindablePropertyUnRegister<T>> RegisterWithInitValue(
-			std::function<void(const T&)> onValueChanged)
+		std::shared_ptr<BindablePropertyUnRegister<_Ty>> RegisterWithInitValue(
+			std::function<void(const _Ty&)> onValueChanged)
 		{
 			onValueChanged(mValue);
 			return Register(std::move(onValueChanged));
 		}
 
 		// 注册观察者
-		std::shared_ptr<BindablePropertyUnRegister<T>> Register(
-			std::function<void(const T&)> onValueChanged)
+		std::shared_ptr<BindablePropertyUnRegister<_Ty>> Register(
+			std::function<void(const _Ty&)> onValueChanged)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			auto unRegister = std::make_shared<BindablePropertyUnRegister<T>>(
+			auto unRegister = std::make_shared<BindablePropertyUnRegister<_Ty>>(
 				mNextId++, this, std::move(onValueChanged));
 			mObservers.push_back(unRegister);
 			return unRegister;
@@ -441,7 +441,7 @@ namespace JFramework
 			mObservers.erase(
 				std::remove_if(
 					mObservers.begin(), mObservers.end(),
-					[id](const std::shared_ptr<BindablePropertyUnRegister<T>>& observer)
+					[id](const std::shared_ptr<BindablePropertyUnRegister<_Ty>>& observer)
 					{
 						return observer->GetId() == id;
 					}),
@@ -449,8 +449,8 @@ namespace JFramework
 		}
 
 		// 操作符重载，方便使用
-		operator T() const { return mValue; }
-		BindableProperty<T>& operator=(const T& newValue)
+		operator _Ty() const { return mValue; }
+		BindableProperty<_Ty>& operator=(const _Ty& newValue)
 		{
 			SetValue(std::move(newValue));
 			return *this;
@@ -468,8 +468,8 @@ namespace JFramework
 		}
 		std::mutex mMutex;
 		int mNextId = 0;
-		T mValue;
-		std::vector<std::shared_ptr<BindablePropertyUnRegister<T>>> mObservers;
+		_Ty mValue;
+		std::vector<std::shared_ptr<BindablePropertyUnRegister<_Ty>>> mObservers;
 	};
 
 	/// @brief 初始化接口
@@ -508,16 +508,16 @@ namespace JFramework
 	class ICanGetModel : public IBelongToArchitecture
 	{
 	public:
-		template <typename T>
-		std::shared_ptr<T> GetModel()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetModel()
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			auto model = arch->GetModel<T>();
+			auto model = arch->GetModel<_Ty>();
 			return model;
 		}
 	};
@@ -526,16 +526,16 @@ namespace JFramework
 	class ICanGetSystem : public IBelongToArchitecture
 	{
 	public:
-		template <typename T>
-		std::shared_ptr<T> GetSystem()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetSystem()
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			auto system = arch->GetSystem<T>();
+			auto system = arch->GetSystem<_Ty>();
 			return system;
 		}
 	};
@@ -544,15 +544,15 @@ namespace JFramework
 	class ICanSendCommand : public IBelongToArchitecture
 	{
 	public:
-		template <typename T, typename... Args>
+		template <typename _Ty, typename... Args>
 		void SendCommand(Args&&... args)
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
-			arch->SendCommand<T>(std::forward<Args>(args)...);
+			arch->SendCommand<_Ty>(std::forward<Args>(args)...);
 		}
 
 		void SendCommand(std::unique_ptr<ICommand> command)
@@ -570,26 +570,26 @@ namespace JFramework
 	class ICanSendQuery : public IBelongToArchitecture
 	{
 	public:
-		template <typename T, typename... Args>
-		auto SendQuery(Args&&... args) -> decltype(std::declval<T>().Do())
+		template <typename _Ty, typename... Args>
+		auto SendQuery(Args&&... args) -> decltype(std::declval<_Ty>().Do())
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			auto result = arch->SendQuery<T>(std::forward<Args>(args)...);
+			auto result = arch->SendQuery<_Ty>(std::forward<Args>(args)...);
 			return result;
 		}
 
-		template <typename T>
-		auto SendQuery(std::unique_ptr<T> query) -> decltype(std::declval<T>().Do())
+		template <typename _Ty>
+		auto SendQuery(std::unique_ptr<_Ty> query) -> decltype(std::declval<_Ty>().Do())
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
 			auto result = arch->SendQuery(std::move(query));
@@ -600,16 +600,16 @@ namespace JFramework
 	class ICanGetUtility : public IBelongToArchitecture
 	{
 	public:
-		template <typename T>
-		std::shared_ptr<T> GetUtility()
+		template <typename _Ty>
+		std::shared_ptr<_Ty> GetUtility()
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			auto utility = arch->GetUtility<T>();
+			auto utility = arch->GetUtility<_Ty>();
 			return utility;
 		}
 	};
@@ -620,15 +620,15 @@ namespace JFramework
 	class ICanSendEvent : public IBelongToArchitecture
 	{
 	public:
-		template <typename T, typename... Args>
+		template <typename _Ty, typename... Args>
 		void SendEvent(Args&&... args)
 		{
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
-			arch->SendEvent<T>(std::forward<Args>(args)...);
+			arch->SendEvent<_Ty>(std::forward<Args>(args)...);
 		}
 	};
 
@@ -638,34 +638,34 @@ namespace JFramework
 	public:
 		virtual ~ICanRegisterEvent() = default;
 
-		template <typename T>
+		template <typename _Ty>
 		void RegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, T>,
-				"T must inherit from IEvent");
+			static_assert(std::is_base_of_v<IEvent, _Ty>,
+				"_Ty must inherit from IEvent");
 
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			arch->RegisterEvent<T>(handler);
+			arch->RegisterEvent<_Ty>(handler);
 		}
 
-		template <typename T>
+		template <typename _Ty>
 		void UnRegisterEvent(ICanHandleEvent* handler)
 		{
-			static_assert(std::is_base_of_v<IEvent, T>,
-				"T must inherit from IEvent");
+			static_assert(std::is_base_of_v<IEvent, _Ty>,
+				"_Ty must inherit from IEvent");
 
 			auto arch = GetArchitecture().lock();
 			if (!arch)
 			{
-				throw ArchitectureNotSetException(typeid(T).name());
+				throw ArchitectureNotSetException(typeid(_Ty).name());
 			}
 
-			arch->UnRegisterEvent<T>(handler);
+			arch->UnRegisterEvent<_Ty>(handler);
 		}
 	};
 
@@ -690,7 +690,8 @@ namespace JFramework
 		public ICanInit,
 		public ICanSendEvent,
 		public ICanSendQuery,
-		public ICanGetUtility
+		public ICanGetUtility,
+		public ICanGetModel
 	{
 	};
 
@@ -720,7 +721,7 @@ namespace JFramework
 	};
 
 	/// @brief Query接口
-	template <typename T>
+	template <typename _Ty>
 	class IQuery : public ICanSetArchitecture,
 		public ICanGetModel,
 		public ICanGetSystem,
@@ -728,7 +729,7 @@ namespace JFramework
 	{
 	public:
 		virtual ~IQuery() override = default;
-		virtual T Do() = 0;
+		virtual _Ty Do() = 0;
 	};
 
 	class IUtility
@@ -743,10 +744,10 @@ namespace JFramework
 	class IOCContainer
 	{
 	public:
-		template <typename T, typename TBase>
+		template <typename _Ty, typename TBase>
 		void Register(std::type_index typeId, std::shared_ptr<TBase> component)
 		{
-			static_assert(std::is_base_of_v<TBase, T>, "T must inherit from TBase");
+			static_assert(std::is_base_of_v<TBase, _Ty>, "_Ty must inherit from TBase");
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
 			container[typeId] = std::static_pointer_cast<TBase>(component);
@@ -992,10 +993,10 @@ namespace JFramework
 		virtual void OnDeinit() {}
 
 	private:
-		template <typename T>
-		void InitializeComponent(std::shared_ptr<T> component)
+		template <typename _Ty>
+		void InitializeComponent(std::shared_ptr<_Ty> component)
 		{
-			static_assert(std::is_base_of_v<ICanInit, T>,
+			static_assert(std::is_base_of_v<ICanInit, _Ty>,
 				"Component must implement ICanInit");
 
 			if (!component->IsInitialized())
@@ -1005,10 +1006,10 @@ namespace JFramework
 			}
 		}
 
-		template <typename T>
-		void UnInitializeComponent(std::shared_ptr<T> component)
+		template <typename _Ty>
+		void UnInitializeComponent(std::shared_ptr<_Ty> component)
 		{
-			static_assert(std::is_base_of_v<ICanInit, T>,
+			static_assert(std::is_base_of_v<ICanInit, _Ty>,
 				"Component must implement ICanInit");
 
 			if (component->IsInitialized())
@@ -1109,8 +1110,8 @@ namespace JFramework
 		virtual void OnEvent(std::shared_ptr<IEvent> event) = 0;
 	};
 
-	template <typename T>
-	class AbstractQuery : public IQuery<T>
+	template <typename _Ty>
+	class AbstractQuery : public IQuery<_Ty>
 	{
 	private:
 		std::weak_ptr<IArchitecture> mArchitecture;
@@ -1121,7 +1122,7 @@ namespace JFramework
 			return mArchitecture;
 		}
 
-		T Do() final { return OnDo(); }
+		_Ty Do() final { return OnDo(); }
 
 	public:
 		void SetArchitecture(std::shared_ptr<IArchitecture> architecture) final
@@ -1130,7 +1131,7 @@ namespace JFramework
 		}
 
 	protected:
-		virtual T OnDo() = 0;
+		virtual _Ty OnDo() = 0;
 	};
 };  // namespace JFramework
 
