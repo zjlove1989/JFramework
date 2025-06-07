@@ -26,11 +26,12 @@
 #define JFRAMEWORK
 
 #include <windows.h>
-#include <tchar.h>
 #include <exception>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 #include <typeindex>
 #include <unordered_map>
 
