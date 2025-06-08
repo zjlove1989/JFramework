@@ -177,7 +177,6 @@ protected:
     virtual std::shared_ptr<IModel> GetModel(std::type_index typeId) = 0;
     virtual std::shared_ptr<IUtility> GetUtility(std::type_index typeId) = 0;
 
-    
     // 事件管理
     virtual void SendEvent(std::shared_ptr<IEvent> event) = 0;
     virtual void RegisterEvent(std::type_index eventType,
@@ -469,7 +468,10 @@ private:
     {
         // 通知有效的观察者
         for (auto& observer : mObservers) {
-            observer->Invoke(mValue);
+            try {
+                observer->Invoke(mValue);
+            } catch (const std::exception&) {
+            }
         }
     }
     std::mutex mMutex;
@@ -728,7 +730,7 @@ public:
         auto& container = GetContainer(ContainerTypeTag<TBase> {});
         std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase> {}));
 
-          if (container.find(typeId.name()) != container.end())
+        if (container.find(typeId.name()) != container.end())
             throw ComponentAlreadyRegisteredException(typeId.name());
 
         container[typeId.name()] = std::static_pointer_cast<TBase>(component);
@@ -856,7 +858,6 @@ private:
         return mContainer->Get<IUtility>(typeId);
     }
 
-    
     // ----------------------------------Event--------------------------------------//
 
     void RegisterEvent(std::type_index eventType,
@@ -876,7 +877,6 @@ private:
         }
         mEventBus->UnRegisterEvent(eventType, handler);
     }
-
 
 public:
     // 实现 GetSharedPtr()
