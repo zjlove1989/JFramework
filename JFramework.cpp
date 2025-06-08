@@ -1073,6 +1073,145 @@ TEST(ArchitectureTest, SystemHandleEvent)
     EXPECT_TRUE(sys->eventHandled);
 }
 
+// ========== AbstractCommand 单元测试 ==========
+class TestArch : public Architecture {
+protected:
+    void Init() override { }
+};
+
+class MyAbstractCommand : public AbstractCommand {
+public:
+    bool executed = false;
+    std::weak_ptr<IArchitecture> archSet;
+
+public:
+    void OnExecute() override { executed = true; }
+};
+
+TEST(AbstractCommandTest, ExecuteCallsOnExecute)
+{
+    MyAbstractCommand cmd;
+    EXPECT_FALSE(cmd.executed);
+    cmd.OnExecute();
+    EXPECT_TRUE(cmd.executed);
+}
+
+TEST(AbstractCommandTest, SetAndGetArchitecture)
+{
+    auto arch = std::make_shared<TestArch>();
+    MyAbstractCommand cmd;
+    cmd.SetArchitecture(arch);
+    EXPECT_EQ(cmd.GetArchitecture().lock(), arch);
+}
+
+// ========== AbstractModel 单元测试 ==========
+class MyAbstractModel : public AbstractModel {
+public:
+    bool inited = false;
+    bool deinited = false;
+    std::weak_ptr<IArchitecture> archSet;
+
+protected:
+    void OnInit() override { inited = true; }
+    void OnDeinit() override { deinited = true; }
+};
+
+TEST(AbstractModelTest, InitAndDeinitCallOnInitOnDeinit)
+{
+    MyAbstractModel model;
+    EXPECT_FALSE(model.inited);
+    EXPECT_FALSE(model.deinited);
+    model.Init();
+    EXPECT_TRUE(model.inited);
+    model.Deinit();
+    EXPECT_TRUE(model.deinited);
+}
+
+// ========== AbstractSystem 单元测试 ==========
+class DummyEventForSystem : public IEvent {
+public:
+    std::string GetEventType() const override { return "DummyEventForSystem"; }
+};
+
+class MyAbstractSystem : public AbstractSystem {
+public:
+    bool inited = false;
+    bool deinited = false;
+    bool eventHandled = false;
+    std::weak_ptr<IArchitecture> archSet;
+
+protected:
+    void OnInit() override { inited = true; }
+    void OnDeinit() override { deinited = true; }
+    void OnEvent(std::shared_ptr<IEvent> event) override { eventHandled = true; }
+};
+
+TEST(AbstractSystemTest, InitAndDeinitCallOnInitOnDeinit)
+{
+    MyAbstractSystem sys;
+    EXPECT_FALSE(sys.inited);
+    EXPECT_FALSE(sys.deinited);
+    sys.Init();
+    EXPECT_TRUE(sys.inited);
+    sys.Deinit();
+    EXPECT_TRUE(sys.deinited);
+}
+
+TEST(AbstractSystemTest, HandleEventCallsOnEvent)
+{
+    MyAbstractSystem sys;
+    auto evt = std::make_shared<DummyEventForSystem>();
+    EXPECT_FALSE(sys.eventHandled);
+    sys.HandleEvent(evt);
+    EXPECT_TRUE(sys.eventHandled);
+}
+
+// ========== AbstractController 单元测试 ==========
+class DummyEventForController : public IEvent {
+public:
+    std::string GetEventType() const override { return "DummyEventForController"; }
+};
+
+class MyAbstractController : public AbstractController {
+public:
+    bool eventHandled = false;
+
+protected:
+    void OnEvent(std::shared_ptr<IEvent> event) override { eventHandled = true; }
+};
+
+// ========== AbstractQuery 单元测试 ==========
+class MyAbstractQuery : public AbstractQuery<int> {
+public:
+    bool called = false;
+    int ret = 0;
+
+protected:
+    int OnDo() override
+    {
+        called = true;
+        return ret;
+    }
+};
+
+TEST(AbstractQueryTest, DoCallsOnDo)
+{
+    MyAbstractQuery query;
+    query.ret = 77;
+    EXPECT_FALSE(query.called);
+    int result = query.Do();
+    EXPECT_TRUE(query.called);
+    EXPECT_EQ(result, 77);
+}
+
+TEST(AbstractQueryTest, SetAndGetArchitecture)
+{
+    auto arch = std::make_shared<TestArch>();
+    MyAbstractQuery query;
+    query.SetArchitecture(arch);
+    EXPECT_EQ(query.GetArchitecture().lock(), arch);
+}
+
 int main(int argc, char** argv)
 {
     testing::InitGoogleTest(&argc, argv);
