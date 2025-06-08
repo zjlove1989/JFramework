@@ -293,8 +293,11 @@ class DummyModel : public IModel {
 public:
     void Init() override { }
     void Deinit() override { }
-    void SetArchitecture(std::shared_ptr<IArchitecture>) override { }
-    std::weak_ptr<IArchitecture> GetArchitecture() const override { return {}; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
 };
 
 TEST(IOCContainerTest, RegisterAndGetModel)
@@ -325,7 +328,6 @@ TEST(IOCContainerTest, GetAllModels)
     EXPECT_EQ(all[0], model);
 }
 
-
 TEST(IOCContainerTest, Clear)
 {
     IOCContainer container;
@@ -339,9 +341,12 @@ class DummySystem : public ISystem {
 public:
     void Init() override { }
     void Deinit() override { }
-    void SetArchitecture(std::shared_ptr<IArchitecture>) override { }
-    std::weak_ptr<IArchitecture> GetArchitecture() const override { return {}; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
     void HandleEvent(std::shared_ptr<IEvent>) override { }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
 };
 
 class DummyUtility : public IUtility { };
@@ -360,7 +365,7 @@ TEST(IOCContainerTest, RegisterSystemDuplicateThrows)
     IOCContainer container;
     auto sys = std::make_shared<DummySystem>();
     container.Register<DummySystem, ISystem>(typeid(DummySystem), sys);
-     using RegisterType = void (IOCContainer::*)(std::type_index, std::shared_ptr<ISystem>);
+    using RegisterType = void (IOCContainer::*)(std::type_index, std::shared_ptr<ISystem>);
     EXPECT_THROW((container.*static_cast<RegisterType>(&IOCContainer::Register<DummySystem, ISystem>))(typeid(DummySystem), sys), ComponentAlreadyRegisteredException);
 }
 
@@ -565,6 +570,14 @@ TEST(ArchitectureTest, RegisterNullptrThrows)
     EXPECT_THROW(arch->RegisterUtility<TestUtility>(nullptr), std::invalid_argument);
 }
 
+TEST(ModelTest, SetAndGetArchitecture)
+{
+    auto arch = std::make_shared<TestArchitecture>();
+    auto model = std::make_shared<DummyModel>();
+    model->SetArchitecture(arch);
+    EXPECT_EQ(model->GetArchitecture().lock(), arch);
+}
+
 // ========== BindablePropertyUnRegister 测试 ==========
 
 TEST(BindablePropertyUnRegisterTest, GetIdReturnsCorrectId)
@@ -683,6 +696,225 @@ TEST(BindablePropertyUnRegisterTest, UnRegisterDoesNotAffectOtherObservers)
     EXPECT_EQ(v1, 1); // u1 不再更新
     EXPECT_EQ(v2, 2); // u2 仍然更新
 }
+
+// ========== 能力接口（ICanGetModel等）单元测试 ==========
+
+class DummyArch : public Architecture {
+protected:
+    void Init() override { }
+};
+
+class DummyEvent : public IEvent {
+public:
+    std::string GetEventType() const override { return "DummyEvent"; }
+};
+
+class DummyHandler : public ICanHandleEvent {
+public:
+    bool called = false;
+    void HandleEvent(std::shared_ptr<IEvent>) override { called = true; }
+};
+
+// ICommand 测试用
+class DummyCommand : public ICommand {
+public:
+    bool executed = false;
+    void Execute() override { executed = true; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+// IQuery 测试用
+class DummyQuery : public IQuery<int> {
+public:
+    int Do() override { return 42; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+// ========== 能力接口实现类 ==========
+class CanGetModelObj : public ICanGetModel {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanGetSystemObj : public ICanGetSystem {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanSendCommandObj : public ICanSendCommand {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanSendQueryObj : public ICanSendQuery {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanGetUtilityObj : public ICanGetUtility {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanSendEventObj : public ICanSendEvent {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+class CanRegisterEventObj : public ICanRegisterEvent {
+public:
+    std::weak_ptr<IArchitecture> mArch;
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+};
+
+// ========== ICanGetModel ==========
+TEST(CapabilityTest, ICanGetModel_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    auto model = std::make_shared<DummyModel>();
+    arch->RegisterModel<DummyModel>(model);
+
+    CanGetModelObj obj;
+    obj.mArch = arch;
+    auto got = obj.GetModel<DummyModel>();
+    EXPECT_EQ(got, model);
+}
+
+TEST(CapabilityTest, ICanGetModel_ArchNotSet)
+{
+    CanGetModelObj obj;
+    EXPECT_THROW(obj.GetModel<DummyModel>(), ArchitectureNotSetException);
+}
+
+// ========== ICanGetSystem ==========
+TEST(CapabilityTest, ICanGetSystem_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    auto sys = std::make_shared<DummySystem>();
+    arch->RegisterSystem<DummySystem>(sys);
+
+    CanGetSystemObj obj;
+    obj.mArch = arch;
+    auto got = obj.GetSystem<DummySystem>();
+    EXPECT_EQ(got, sys);
+}
+
+TEST(CapabilityTest, ICanGetSystem_ArchNotSet)
+{
+    CanGetSystemObj obj;
+    EXPECT_THROW(obj.GetSystem<DummySystem>(), ArchitectureNotSetException);
+}
+
+// ========== ICanSendCommand ==========
+TEST(CapabilityTest, ICanSendCommand_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    CanSendCommandObj obj;
+    obj.mArch = arch;
+    obj.SendCommand<DummyCommand>();
+    // 由于 DummyCommand::executed 是局部变量，无法直接断言，但可通过不抛异常判断流程
+    SUCCEED();
+}
+
+TEST(CapabilityTest, ICanSendCommand_ArchNotSet)
+{
+    CanSendCommandObj obj;
+    EXPECT_THROW(obj.SendCommand<DummyCommand>(), ArchitectureNotSetException);
+}
+
+// ========== ICanSendQuery ==========
+TEST(CapabilityTest, ICanSendQuery_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    CanSendQueryObj obj;
+    obj.mArch = arch;
+    int result = obj.SendQuery<DummyQuery>();
+    EXPECT_EQ(result, 42);
+}
+
+TEST(CapabilityTest, ICanSendQuery_ArchNotSet)
+{
+    CanSendQueryObj obj;
+    EXPECT_THROW(obj.SendQuery<DummyQuery>(), ArchitectureNotSetException);
+}
+
+// ========== ICanGetUtility ==========
+TEST(CapabilityTest, ICanGetUtility_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    auto util = std::make_shared<DummyUtility>();
+    arch->RegisterUtility<DummyUtility>(util);
+
+    CanGetUtilityObj obj;
+    obj.mArch = arch;
+    auto got = obj.GetUtility<DummyUtility>();
+    EXPECT_EQ(got, util);
+}
+
+TEST(CapabilityTest, ICanGetUtility_ArchNotSet)
+{
+    CanGetUtilityObj obj;
+    EXPECT_THROW(obj.GetUtility<DummyUtility>(), ArchitectureNotSetException);
+}
+
+// ========== ICanSendEvent ==========
+TEST(CapabilityTest, ICanSendEvent_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    DummyHandler handler;
+    arch->RegisterEvent<DummyEvent>(&handler);
+
+    CanSendEventObj obj;
+    obj.mArch = arch;
+    obj.SendEvent<DummyEvent>();
+    EXPECT_TRUE(handler.called);
+}
+
+TEST(CapabilityTest, ICanSendEvent_ArchNotSet)
+{
+    CanSendEventObj obj;
+    EXPECT_THROW(obj.SendEvent<DummyEvent>(), ArchitectureNotSetException);
+}
+
+// ========== ICanRegisterEvent ==========
+TEST(CapabilityTest, ICanRegisterEvent_Success)
+{
+    auto arch = std::make_shared<DummyArch>();
+    DummyHandler handler;
+    CanRegisterEventObj obj;
+    obj.mArch = arch;
+    obj.RegisterEvent<DummyEvent>(&handler);
+    arch->SendEvent<DummyEvent>();
+    EXPECT_TRUE(handler.called);
+
+    handler.called = false;
+    obj.UnRegisterEvent<DummyEvent>(&handler);
+    arch->SendEvent<DummyEvent>();
+    EXPECT_FALSE(handler.called);
+}
+
+TEST(CapabilityTest, ICanRegisterEvent_ArchNotSet)
+{
+    CanRegisterEventObj obj;
+    DummyHandler handler;
+    EXPECT_THROW(obj.RegisterEvent<DummyEvent>(&handler), ArchitectureNotSetException);
+    EXPECT_THROW(obj.UnRegisterEvent<DummyEvent>(&handler), ArchitectureNotSetException);
+}
+
 int main(int argc, char** argv)
 {
     testing::InitGoogleTest(&argc, argv);
