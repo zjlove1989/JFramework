@@ -258,6 +258,9 @@ public:
     template <typename _Ty>
     void UnRegisterEvent(ICanHandleEvent* handler)
     {
+        if (!handler) {
+            throw std::invalid_argument("ICanHandleEvent cannot be null");
+        }
         static_assert(std::is_base_of_v<IEvent, _Ty>,
             "_Ty must inherit from IEvent");
         mEventBus->UnRegisterEvent(typeid(_Ty), handler);

@@ -915,6 +915,164 @@ TEST(CapabilityTest, ICanRegisterEvent_ArchNotSet)
     EXPECT_THROW(obj.UnRegisterEvent<DummyEvent>(&handler), ArchitectureNotSetException);
 }
 
+// ========== Architecture 单元测试 ==========
+
+class ArchTestModel : public IModel {
+public:
+    bool inited = false;
+    void Init() override { inited = true; }
+    void Deinit() override { inited = false; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+class ArchTestSystem : public ISystem {
+public:
+    bool inited = false;
+    bool eventHandled = false;
+    void Init() override { inited = true; }
+    void Deinit() override { inited = false; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+    void HandleEvent(std::shared_ptr<IEvent>) override { eventHandled = true; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+class ArchTestUtility : public IUtility { };
+
+class ArchTestEvent : public IEvent {
+public:
+    std::string GetEventType() const override { return "ArchTestEvent"; }
+};
+
+class ArchTestHandler : public ICanHandleEvent {
+public:
+    bool called = false;
+    void HandleEvent(std::shared_ptr<IEvent>) override { called = true; }
+};
+
+class ArchTestCommand : public ICommand {
+public:
+    bool executed = false;
+    void Execute() override { executed = true; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+class ArchTestQuery : public IQuery<int> {
+public:
+    int Do() override { return 1234; }
+    void SetArchitecture(std::shared_ptr<IArchitecture> arch) override { mArch = arch; }
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
+};
+
+class MyArchitecture : public Architecture {
+protected:
+    void Init() override { }
+};
+
+TEST(ArchitectureTest, RegisterDuplicateThrows)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    auto model = std::make_shared<ArchTestModel>();
+    arch->RegisterModel<ArchTestModel>(model);
+    EXPECT_THROW(arch->RegisterModel<ArchTestModel>(model), ComponentAlreadyRegisteredException);
+}
+
+TEST(ArchitectureTest, EventRegisterSendUnregister)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    ArchTestHandler handler;
+    arch->RegisterEvent<ArchTestEvent>(&handler);
+    arch->SendEvent<ArchTestEvent>();
+    EXPECT_TRUE(handler.called);
+
+    handler.called = false;
+    arch->UnRegisterEvent<ArchTestEvent>(&handler);
+    arch->SendEvent<ArchTestEvent>();
+    EXPECT_FALSE(handler.called);
+}
+
+TEST(ArchitectureTest, SendEventNullptrThrows)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    EXPECT_THROW(arch->SendEvent(nullptr), std::invalid_argument);
+}
+
+TEST(ArchitectureTest, RegisterEventNullptrThrows)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    EXPECT_THROW(arch->RegisterEvent<ArchTestEvent>(nullptr), std::invalid_argument);
+    EXPECT_THROW(arch->UnRegisterEvent<ArchTestEvent>(nullptr), std::invalid_argument);
+}
+
+TEST(ArchitectureTest, SendCommandWorks)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    auto cmd = std::make_unique<ArchTestCommand>();
+    ArchTestCommand* cmdPtr = cmd.get();
+    arch->SendCommand(std::move(cmd));
+    EXPECT_TRUE(cmdPtr->executed);
+}
+
+TEST(ArchitectureTest, SendCommandNullptrThrows)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    EXPECT_THROW(arch->SendCommand(nullptr), std::invalid_argument);
+}
+
+TEST(ArchitectureTest, SendQueryWorks)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    int result = arch->SendQuery<ArchTestQuery>();
+    EXPECT_EQ(result, 1234);
+}
+
+TEST(ArchitectureTest, SendQueryNullptrThrows)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    std::unique_ptr<ArchTestQuery> q;
+    EXPECT_THROW(arch->SendQuery(std::move(q)), std::invalid_argument);
+}
+
+TEST(ArchitectureTest, InitAndDeinitLifecycle)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    auto model = std::make_shared<ArchTestModel>();
+    auto sys = std::make_shared<ArchTestSystem>();
+    arch->RegisterModel<ArchTestModel>(model);
+    arch->RegisterSystem<ArchTestSystem>(sys);
+
+    arch->InitArchitecture();
+    EXPECT_TRUE(model->inited);
+    EXPECT_TRUE(sys->inited);
+
+    arch->Deinit();
+    EXPECT_FALSE(model->inited);
+    EXPECT_FALSE(sys->inited);
+}
+
+TEST(ArchitectureTest, SystemHandleEvent)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    auto sys = std::make_shared<ArchTestSystem>();
+    arch->RegisterSystem<ArchTestSystem>(sys);
+    arch->RegisterEvent<ArchTestEvent>(sys.get());
+    arch->SendEvent<ArchTestEvent>();
+    EXPECT_TRUE(sys->eventHandled);
+}
+
 int main(int argc, char** argv)
 {
     testing::InitGoogleTest(&argc, argv);
