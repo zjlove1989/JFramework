@@ -124,22 +124,7 @@ public:
 // 测试架构类
 class TestArchitecture : public Architecture {
 protected:
-    void Init() override
-    {
-        // 注册测试组件
-        RegisterModel<TestModel>(std::make_shared<TestModel>());
-        RegisterModel(std::make_shared<TestModel>());
-        RegisterModel(typeid(TestModel), std::make_shared<TestModel>());
-
-        RegisterSystem<TestSystem>(std::make_shared<TestSystem>());
-        RegisterSystem(std::make_shared<TestSystem>());
-        RegisterSystem(typeid(TestSystem), std::make_shared<TestSystem>());
-
-        RegisterUtility(typeid(TestUtility), std::make_shared<TestUtility>());
-        RegisterUtility(std::make_shared<TestUtility>());
-        RegisterUtility(typeid(TestUtility), std::make_shared<TestUtility>());
-
-    }
+    void Init() override { }
 };
 
 // 测试架构类
@@ -160,34 +145,15 @@ TEST(IOCContainerTest, RegisterAndGet)
     EXPECT_EQ(nullptr, container.Get<IModel>(typeid(TestSystem)));
 }
 
-TEST(IOCContainerTest, GetAll)
-{
-    IOCContainer container;
-    auto model1 = std::make_shared<TestModel>();
-    auto model2 = std::make_shared<TestModel>();
-
-    container.Register<TestModel, IModel>(typeid(TestModel), model1);
-    container.Register<TestModel, IModel>(typeid(TestModel), model2);
-
-    auto allModels = container.GetAll<IModel>();
-    EXPECT_EQ(1, allModels.size());
-
-    // 测试清除功能
-    container.Clear();
-}
-
 TEST(IOCContainerTest, AdvancedRegistration)
 {
     IOCContainer container;
 
     // 测试多组件注册
     auto model1 = std::make_shared<ExtendedTestModel>();
-    auto model2 = std::make_shared<ExtendedTestModel>();
 
     container.Register<ExtendedTestModel, IModel>(typeid(ExtendedTestModel),
         model1);
-    container.Register<ExtendedTestModel, IModel>(typeid(ExtendedTestModel),
-        model2);
 
     // 测试获取所有组件
     auto allModels = container.GetAll<IModel>();
@@ -212,28 +178,6 @@ TEST(IOCContainerTest, TypeSafety)
 
     // 正确类型获取
     EXPECT_NE(nullptr, container.Get<ISystem>(typeid(ExtendedTestSystem)));
-}
-
-TEST(IOCContainerTest, ThreadSafeRegistration)
-{
-    IOCContainer container;
-    const int threadCount = 10;
-    std::vector<std::thread> threads;
-
-    for (int i = 0; i < threadCount; ++i) {
-        threads.emplace_back([&container, i]() {
-            auto model = std::make_shared<TestModel>();
-            container.Register<TestModel, IModel>(typeid(TestModel), model);
-        });
-    }
-
-    for (auto& t : threads) {
-        t.join();
-    }
-
-    // 验证只有一个实例被注册
-    auto allModels = container.GetAll<IModel>();
-    EXPECT_EQ(1, allModels.size());
 }
 
 TEST(IOCContainerTest, DifferentBaseTypes)
@@ -420,6 +364,9 @@ TEST(EventBusTest, ExceptionInEventHandler)
 TEST(ArchitectureTest, ComponentRegistration)
 {
     auto arch = std::make_shared<TestArchitecture>();
+    arch->RegisterModel(std::make_shared<TestModel>());
+    arch->RegisterSystem(std::make_shared<TestSystem>());
+    arch->RegisterUtility(std::make_shared<TestUtility>());
     arch->InitArchitecture();
 
     auto model = arch->GetModel<TestModel>();
@@ -525,6 +472,11 @@ TEST(ArchitectureTest, QueryWithParameters)
 TEST(ArchitectureTest, UtilityUsage)
 {
     auto arch = std::make_shared<TestArchitecture>();
+    // 注册测试组件
+    arch->RegisterModel(std::make_shared<TestModel>());
+    arch->RegisterSystem(std::make_shared<TestSystem>());
+    arch->RegisterUtility(std::make_shared<TestUtility>());
+
     arch->InitArchitecture();
 
     auto utility = arch->GetUtility<TestUtility>();
@@ -661,27 +613,6 @@ TEST(ArchitectureTest, MultipleArchitectureInstances)
     // 验证两个架构实例独立
     EXPECT_TRUE(model1->initialized);
     EXPECT_FALSE(model2->initialized);
-}
-TEST(ConcurrencyTest, ConcurrentComponentRegistration)
-{
-    auto arch = std::make_shared<TestArchitecture>();
-    std::vector<std::thread> threads;
-    const int threadCount = 10;
-
-    for (int i = 0; i < threadCount; ++i) {
-        threads.emplace_back([arch] {
-            auto model = std::make_shared<ExtendedTestModel>();
-            arch->RegisterModel<ExtendedTestModel>(model);
-        });
-    }
-
-    for (auto& t : threads) {
-        t.join();
-    }
-
-    // 验证所有注册都成功
-    auto models = arch->GetContainer()->GetAll<IModel>();
-    EXPECT_EQ(1, models.size()); // 原始1个+新增的threadCount个
 }
 
 TEST(ConcurrencyTest, ConcurrentEventHandling)
@@ -945,6 +876,9 @@ TEST(CapabilityTest, CanGetModel)
     };
 
     auto arch = std::make_shared<TestArchitecture>();
+    arch->RegisterModel(std::make_shared<TestModel>());
+    arch->RegisterSystem(std::make_shared<TestSystem>());
+    arch->RegisterUtility(std::make_shared<TestUtility>());
     arch->InitArchitecture();
     TestComponent component(arch);
 

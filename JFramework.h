@@ -58,6 +58,14 @@ public:
     }
 };
 
+class ComponentAlreadyRegisteredException : public FrameworkException {
+public:
+    explicit ComponentAlreadyRegisteredException(const std::string& typeName)
+        : FrameworkException("Component already registered: " + typeName)
+    {
+    }
+};
+
 // ================ Ç°ÏòÉùÃ÷ ================
 class ISystem;
 class IModel;
@@ -719,6 +727,10 @@ public:
         static_assert(std::is_base_of_v<TBase, _Ty>, "_Ty must inherit from TBase");
         auto& container = GetContainer(ContainerTypeTag<TBase> {});
         std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase> {}));
+
+          if (container.find(typeId.name()) != container.end())
+            throw ComponentAlreadyRegisteredException(typeId.name());
+
         container[typeId.name()] = std::static_pointer_cast<TBase>(component);
     }
 
@@ -790,7 +802,7 @@ public:
     using IArchitecture::SendEvent;
     using IArchitecture::UnRegisterEvent;
 
-protected:
+private:
     // ----------------------------------System--------------------------------------//
 
     void RegisterSystem(std::type_index typeId,
