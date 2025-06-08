@@ -424,7 +424,7 @@ TEST(ArchitectureTest, ComponentRegistration)
 
     auto model = arch->GetModel<TestModel>();
     auto system = arch->GetSystem<TestSystem>();
-    auto utility = arch->GetUtility(typeid(TestUtility));
+    auto utility = arch->GetUtility<TestUtility>();
 
     EXPECT_NE(nullptr, model);
     EXPECT_NE(nullptr, system);
@@ -462,7 +462,7 @@ TEST(ArchitectureTest, EventHandling)
     arch->InitArchitecture();
 
     TestEventHandler handler;
-    arch->RegisterEvent(typeid(TestEvent), &handler);
+    arch->RegisterEvent<TestEvent>(&handler);
 
     auto event = std::make_shared<TestEvent>();
     arch->SendEvent(event);
@@ -527,7 +527,7 @@ TEST(ArchitectureTest, UtilityUsage)
     auto arch = std::make_shared<TestArchitecture>();
     arch->InitArchitecture();
 
-    auto utility = arch->GetUtility(typeid(TestUtility));
+    auto utility = arch->GetUtility<TestUtility>();
     EXPECT_NE(nullptr, utility);
 
     // 测试utility的具体功能
@@ -1464,13 +1464,14 @@ TEST(BoundaryTest, NullPointerHandling)
     // 测试空指针组件注册
     EXPECT_THROW(arch->RegisterSystem<TestSystem>(nullptr), std::invalid_argument);
     EXPECT_THROW(arch->RegisterModel<TestModel>(nullptr), std::invalid_argument);
+    EXPECT_THROW(arch->RegisterUtility<TestUtility>(nullptr), std::invalid_argument);
 
     // 测试空指针事件发送
     EXPECT_THROW(arch->SendEvent(nullptr), std::invalid_argument);
     EXPECT_THROW(arch->SendCommand(nullptr), std::invalid_argument);
 
     // 测试空指针事件处理器注册
-    EXPECT_THROW(arch->RegisterEvent(typeid(TestEvent), nullptr), std::invalid_argument);
+    EXPECT_THROW(arch->RegisterEvent<TestEvent>(nullptr), std::invalid_argument);
 }
 
 TEST(ConcurrencyTest, ParallelCommandExecution)

@@ -147,6 +147,12 @@ public:
     // 新增方法，用于派生类实现 shared_from_this()
     virtual std::shared_ptr<IArchitecture> GetSharedFromThis() = 0;
 
+    // 命令管理
+    virtual void SendCommand(std::unique_ptr<ICommand> command) = 0;
+
+    virtual void Deinit() = 0;
+
+protected:
     // 注册组件
     virtual void RegisterSystem(std::type_index typeId,
         std::shared_ptr<ISystem> system)
@@ -163,9 +169,7 @@ public:
     virtual std::shared_ptr<IModel> GetModel(std::type_index typeId) = 0;
     virtual std::shared_ptr<IUtility> GetUtility(std::type_index typeId) = 0;
 
-    // 命令管理
-    virtual void SendCommand(std::unique_ptr<ICommand> command) = 0;
-
+    
     // 事件管理
     virtual void SendEvent(std::shared_ptr<IEvent> event) = 0;
     virtual void RegisterEvent(std::type_index eventType,
@@ -174,8 +178,6 @@ public:
     virtual void UnRegisterEvent(std::type_index eventType,
         ICanHandleEvent* handler)
         = 0;
-
-    virtual void Deinit() = 0;
 
 public:
     template <typename _Ty>
@@ -197,6 +199,9 @@ public:
     template <typename _Ty>
     void RegisterUtility(std::shared_ptr<_Ty> utility)
     {
+        if (!utility) {
+            throw std::invalid_argument("IUtility cannot be null");
+        }
         static_assert(std::is_base_of_v<IUtility, _Ty>,
             "_Ty must inherit from IUtility");
         RegisterUtility(typeid(_Ty), std::static_pointer_cast<IUtility>(utility));
@@ -235,6 +240,9 @@ public:
     template <typename _Ty>
     void RegisterEvent(ICanHandleEvent* handler)
     {
+        if (!handler) {
+            throw std::invalid_argument("ICanHandleEvent cannot be null");
+        }
         static_assert(std::is_base_of_v<IEvent, _Ty>,
             "_Ty must inherit from IEvent");
         mEventBus->RegisterEvent(typeid(_Ty), handler);
@@ -782,13 +790,7 @@ public:
     using IArchitecture::SendEvent;
     using IArchitecture::UnRegisterEvent;
 
-public:
-    // 实现 GetSharedPtr()
-    std::shared_ptr<IArchitecture> GetSharedFromThis() final
-    {
-        return shared_from_this();
-    }
-
+protected:
     // ----------------------------------System--------------------------------------//
 
     void RegisterSystem(std::type_index typeId,
@@ -842,20 +844,7 @@ public:
         return mContainer->Get<IUtility>(typeId);
     }
 
-    // ----------------------------------Command--------------------------------------//
-
-    void SendCommand(std::unique_ptr<ICommand> command) override
-    {
-        if (!command) {
-            throw std::invalid_argument("Command cannot be null");
-        }
-        command->SetArchitecture(shared_from_this());
-        try {
-            command->Execute();
-        } catch (const std::exception&) {
-        }
-    }
-
+    
     // ----------------------------------Event--------------------------------------//
 
     void RegisterEvent(std::type_index eventType,
@@ -876,10 +865,32 @@ public:
         mEventBus->UnRegisterEvent(eventType, handler);
     }
 
+
+public:
+    // 实现 GetSharedPtr()
+    std::shared_ptr<IArchitecture> GetSharedFromThis() final
+    {
+        return shared_from_this();
+    }
+
+    // ----------------------------------Command--------------------------------------//
+
+    void SendCommand(std::unique_ptr<ICommand> command) override
+    {
+        if (!command) {
+            throw std::invalid_argument("ICommand cannot be null");
+        }
+        command->SetArchitecture(shared_from_this());
+        try {
+            command->Execute();
+        } catch (const std::exception&) {
+        }
+    }
+
     void SendEvent(std::shared_ptr<IEvent> event) override
     {
         if (!event) {
-            throw std::invalid_argument("Event cannot be null");
+            throw std::invalid_argument("IEvent cannot be null");
         }
         mEventBus->SendEvent(event);
     }
