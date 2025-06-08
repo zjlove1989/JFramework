@@ -96,7 +96,7 @@ namespace JFramework
 		void RegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			mSubscribers[eventType].push_back(handler);
+			mSubscribers[eventType.name()].push_back(handler);
 		}
 
 		void SendEvent(std::shared_ptr<IEvent> event)
@@ -104,7 +104,7 @@ namespace JFramework
 			std::vector<ICanHandleEvent*> subscribers;
 			{
 				std::lock_guard<std::mutex> lock(mMutex);
-				auto it = mSubscribers.find(typeid(*event));
+				auto it = mSubscribers.find(typeid(*event).name());
 				if (it != mSubscribers.end())
 				{
 					subscribers = it->second;
@@ -126,7 +126,7 @@ namespace JFramework
 		void UnRegisterEvent(std::type_index eventType, ICanHandleEvent* handler)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			auto it = mSubscribers.find(eventType);
+			auto it = mSubscribers.find(eventType.name());
 			if (it != mSubscribers.end())
 			{
 				auto& handlers = it->second;
@@ -150,7 +150,7 @@ namespace JFramework
 
 	private:
 		std::mutex mMutex;
-		std::unordered_map<std::type_index, std::vector<ICanHandleEvent*>>
+		std::unordered_map<std::string, std::vector<ICanHandleEvent*>>
 			mSubscribers;
 	};
 
@@ -751,7 +751,7 @@ namespace JFramework
 			static_assert(std::is_base_of_v<TBase, _Ty>, "_Ty must inherit from TBase");
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
-			container[typeId] = std::static_pointer_cast<TBase>(component);
+			container[typeId.name()] = std::static_pointer_cast<TBase>(component);
 		}
 
 		template <typename TBase>
@@ -759,7 +759,7 @@ namespace JFramework
 		{
 			auto& container = GetContainer(ContainerTypeTag<TBase>{});
 			std::lock_guard<std::mutex> lock(GetMutex(MutexTypeTag<TBase>{}));
-			auto it = container.find(typeId);
+			auto it = container.find(typeId.name());
 			return it != container.end() ? it->second : nullptr;
 		}
 
@@ -798,9 +798,9 @@ namespace JFramework
 		auto& GetMutex(MutexTypeTag<ISystem>) { return mSystemMutex; }
 		auto& GetMutex(MutexTypeTag<IUtility>) { return mUtilityMutex; }
 
-		std::unordered_map<std::type_index, std::shared_ptr<IModel>> mModels;
-		std::unordered_map<std::type_index, std::shared_ptr<ISystem>> mSystems;
-		std::unordered_map<std::type_index, std::shared_ptr<IUtility>> mUtilitys;
+		std::unordered_map<std::string, std::shared_ptr<IModel>> mModels;
+		std::unordered_map<std::string, std::shared_ptr<ISystem>> mSystems;
+		std::unordered_map<std::string, std::shared_ptr<IUtility>> mUtilitys;
 
 		std::mutex mModelMutex;
 		std::mutex mSystemMutex;
