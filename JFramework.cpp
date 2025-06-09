@@ -54,9 +54,139 @@ void BindablePropertyExample()
 	// 这里 autoCounter 再次赋值不会有输出
 }
 
+
+// 1. 定义一个事件
+class MyEvent : public IEvent
+{
+public:
+	std::string msg;
+	MyEvent(const std::string& m) : msg(m) {}
+	std::string GetEventType() const override { return "MyEvent"; }
+};
+
+// 2. 定义一个 Model
+class CounterModel : public AbstractModel
+{
+public:
+	int value = 0;
+protected:
+	void OnInit() override { value = 0; }
+	void OnDeinit() override {}
+};
+
+// 3. 定义一个 System，监听事件
+class PrintSystem : public AbstractSystem
+{
+protected:
+	void OnInit() override
+	{
+		RegisterEvent<MyEvent>(this);
+	}
+	void OnDeinit() override
+	{
+		UnRegisterEvent<MyEvent>(this);
+	}
+	void OnEvent(std::shared_ptr<IEvent> event) override
+	{
+		auto e = std::dynamic_pointer_cast<MyEvent>(event);
+		if (e)
+		{
+			std::cout << "PrintSystem 收到事件: " << e->msg << std::endl;
+		}
+	}
+};
+
+// 4. 定义一个 Command
+class AddCommand : public AbstractCommand
+{
+	int delta;
+public:
+	AddCommand(int d) : delta(d) {}
+protected:
+	void OnExecute() override
+	{
+		auto model = GetModel<CounterModel>();
+		model->value += delta;
+		SendEvent<MyEvent>("计数器已增加，当前值: " + std::to_string(model->value));
+	}
+};
+
+// 1. 定义一个 Model
+class TestQueryCounterModel : public AbstractModel
+{
+public:
+	int value = 42;
+protected:
+	void OnInit() override { value = 42; }
+	void OnDeinit() override {}
+};
+
+
+// 5. 定义架构实现
+class MyAppArchitecture : public Architecture
+{
+protected:
+	void Init() override
+	{
+		RegisterModel(std::make_shared<CounterModel>());
+		RegisterModel(std::make_shared<TestQueryCounterModel>());
+		RegisterSystem(std::make_shared<PrintSystem>());
+	}
+	void OnDeinit() override {}
+};
+
+int ArchitectureExample()
+{
+	// 创建架构实例
+	auto arch = std::make_shared<MyAppArchitecture>();
+	arch->InitArchitecture();
+
+	// 发送命令
+	arch->SendCommand<AddCommand>(5);
+	arch->SendCommand<AddCommand>(3);
+
+	// 获取 Model
+	auto model = arch->GetModel<CounterModel>();
+	std::cout << "最终计数值: " << model->value << std::endl;
+
+	arch->Deinit();
+	return 0;
+}
+
+
+// 2. 定义一个 Query，查询 CounterModel 的值
+class GetCounterValueQuery : public AbstractQuery<int>
+{
+protected:
+	int OnDo() override
+	{
+		// 通过基类接口获取 Model
+		auto model = GetModel<TestQueryCounterModel>();
+		return model->value;
+	}
+};
+
+
+int QueryExample()
+{
+	auto arch = std::make_shared<MyAppArchitecture>();
+	arch->InitArchitecture();
+
+	// 通过架构发送 Query，获取 CounterModel 的值
+	int result = arch->SendQuery<GetCounterValueQuery>();
+	std::cout << "CounterModel value: " << result << std::endl; // 输出: 42
+
+	arch->Deinit();
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	BindablePropertyExample();
+
+	ArchitectureExample();
+
+	QueryExample();
 
 	return 0;
 }
