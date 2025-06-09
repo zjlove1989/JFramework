@@ -38,19 +38,6 @@ JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、�
 - 架构级生命周期控制，确保组件按顺序初始化 / 销毁
 - 支持延迟注册组件，初始化后仍可动态添加
 
-## 目录结构
-
-    JFramework/
-    ├─ include/                # 头文件
-    │  └─ JFramework.h         # 核心框架定义
-    ├─ src/                    # 源文件（仅包含测试代码）
-    │  └─ JFramework.cpp       # 测试入口
-    └─ test/                   # 单元测试
-       ├─ IOCContainerTest     # IOC容器测试
-       ├─ EventBusTest         # 事件总线测试
-       ├─ ArchitectureTest     # 架构测试
-       └─ ...                  # 其他组件测试
-
 ## 使用示例
 
 ### 1. 定义组件
@@ -134,7 +121,7 @@ protected:
 	}
 };
 
-// 7. 定义一个 Model
+// 7. 定义一个 Model，使用 Query
 class TestQueryCounterModel : public AbstractModel
 {
 public:

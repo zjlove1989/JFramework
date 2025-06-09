@@ -38,19 +38,6 @@ JFramework is a general-purpose C++ application framework that provides core fea
 - Architecture-level lifecycle control to ensure ordered setup/cleanup.
 - Supports late registration of components (dynamic addition post-initialization).
 
-## Directory Structure
-
-	JFramework/
-	├─ include/                # Header files
-	│  └─ JFramework.h         # Core framework definitions
-	├─ src/                    # Source files (test-only)
-	│  └─ JFramework.cpp       # Test entry point
-	└─ test/                   # Unit tests
-	   ├─ IOCContainerTest     # IoC Container tests
-	   ├─ EventBusTest         # Event Bus tests
-	   ├─ ArchitectureTest     # Architecture tests
-	   └─ ...                  # Other component tests
-
 ## Usage Examples
 
 ### 1. Define Components
@@ -134,7 +121,7 @@ protected:
 	}
 };
 
-// 7. 定义一个 Model
+// 7. 定义一个 Model，使用 Query
 class TestQueryCounterModel : public AbstractModel
 {
 public:
