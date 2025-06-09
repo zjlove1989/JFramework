@@ -55,54 +55,175 @@ JFramework 是一个基于 C++ 的通用应用框架，提供了依赖注入、�
 
 ### 1. 定义组件
 ```cpp
-// 模型类
-class TestModel : public JFramework::AbstractModel {
-protected:
-    void OnInit() override { /* 初始化逻辑 */ }
-    void OnDeinit() override { /* 反初始化逻辑 */ }
+
+// 1. 定义一个事件
+class MyEvent : public IEvent
+{
+public:
+	std::string msg;
+	MyEvent(const std::string& m) : msg(m) {}
+	std::string GetEventType() const override { return "MyEvent"; }
 };
 
-// 系统类
-class TestSystem : public JFramework::AbstractSystem {
+// 2. 定义一个 Model
+class CounterModel : public AbstractModel
+{
+public:
+	int value = 0;
 protected:
-    void OnInit() override { /* 初始化逻辑 */ }
-    void OnEvent(std::shared_ptr<JFramework::IEvent> event) override { /* 事件处理 */ }
+	void OnInit() override { value = 0; }
+	void OnDeinit() override {}
 };
 
-// 命令类
-class TestCommand : public JFramework::AbstractCommand {
-protected:
-    void OnExecute() override { /* 命令逻辑 */ }
+// 1. 定义一个 Utility
+class LoggerUtility : public IUtility
+{
+public:
+	void Log(const std::string& msg)
+	{
+		std::cout << "[Logger] " << msg << std::endl;
+	}
 };
+
+// 2. 定义一个 Model，使用 Utility
+class MyModel : public AbstractModel
+{
+protected:
+	void OnInit() override
+	{
+		auto logger = GetUtility<LoggerUtility>();
+		logger->Log("MyModel 初始化完成");
+	}
+	void OnDeinit() override {}
+};
+
+// 3. 定义一个 System，监听事件
+class PrintSystem : public AbstractSystem
+{
+protected:
+	void OnInit() override
+	{
+		RegisterEvent<MyEvent>(this);
+	}
+	void OnDeinit() override
+	{
+		UnRegisterEvent<MyEvent>(this);
+	}
+	void OnEvent(std::shared_ptr<IEvent> event) override
+	{
+		auto e = std::dynamic_pointer_cast<MyEvent>(event);
+		if (e)
+		{
+			std::cout << "PrintSystem 收到事件: " << e->msg << std::endl;
+		}
+	}
+};
+
+// 4. 定义一个 Command
+class AddCommand : public AbstractCommand
+{
+	int delta;
+public:
+	AddCommand(int d) : delta(d) {}
+protected:
+	void OnExecute() override
+	{
+		auto model = GetModel<CounterModel>();
+		model->value += delta;
+		SendEvent<MyEvent>("计数器已增加，当前值: " + std::to_string(model->value));
+	}
+};
+
+// 1. 定义一个 Model
+class TestQueryCounterModel : public AbstractModel
+{
+public:
+	int value = 42;
+protected:
+	void OnInit() override { value = 42; }
+	void OnDeinit() override {}
+};
+
+// 3. 定义一个 Command，使用 Utility
+class PrintCommand : public AbstractCommand
+{
+	std::string mMsg;
+public:
+	PrintCommand(const std::string& msg) : mMsg(msg) {}
+protected:
+	void OnExecute() override
+	{
+		auto logger = GetUtility<LoggerUtility>();
+		logger->Log("PrintCommand 执行: " + mMsg);
+	}
+};
+
+// 2. 定义一个 Query，查询 CounterModel 的值
+class GetCounterValueQuery : public AbstractQuery<int>
+{
+protected:
+	int OnDo() override
+	{
+		// 通过基类接口获取 Model
+		auto model = GetModel<TestQueryCounterModel>();
+		return model->value;
+	}
+};
+
 ```
 ### 2. 注册组件到架构
 ```cpp
-class AppArchitecture : public JFramework::Architecture {
+// 5. 定义架构实现
+class MyAppArchitecture : public Architecture
+{
 protected:
-    void Init() override {
-        // 注册模型
-        RegisterModel<TestModel>(std::make_shared<TestModel>());
-        // 注册系统
-        RegisterSystem<TestSystem>(std::make_shared<TestSystem>());
-    }
+	void Init() override
+	{
+		RegisterUtility(std::make_shared<LoggerUtility>());
+
+		RegisterModel(std::make_shared<MyModel>());
+		RegisterModel(std::make_shared<CounterModel>());
+		RegisterModel(std::make_shared<TestQueryCounterModel>());
+
+		RegisterSystem(std::make_shared<PrintSystem>());
+	}
+	void OnDeinit() override {}
 };
 ```
 ### 3. 使用组件
 ```cpp
-int main() {
-    auto arch = std::make_shared<AppArchitecture>();
-    arch->InitArchitecture(); // 初始化架构
 
-    // 获取模型
-    auto model = arch->GetModel<TestModel>();
+int ArchitectureExample()
+{
+	// 创建架构实例
+	auto arch = std::make_shared<MyAppArchitecture>();
+	arch->InitArchitecture();
 
-    // 发送命令
-    arch->SendCommand(std::make_unique<TestCommand>());
+	// 发送命令
+	arch->SendCommand<AddCommand>(5);
+	arch->SendCommand<AddCommand>(3);
 
-    // 发送事件
-    arch->SendEvent(std::make_shared<JFramework::TestEvent>());
+	// 获取 Model
+	auto model = arch->GetModel<CounterModel>();
+	std::cout << "最终计数值: " << model->value << std::endl;
 
-    return 0;
+	// 发送命令，命令内部会用到 Utility
+	arch->SendCommand<PrintCommand>("Hello Utility!");
+
+	// 通过架构发送 Query，获取 CounterModel 的值
+	int result = arch->SendQuery<GetCounterValueQuery>();
+	std::cout << "CounterModel value: " << result << std::endl; // 输出: 42
+
+	arch->Deinit();
+	return 0;
+}
+int main(int argc, char** argv)
+{
+	BindablePropertyExample();
+
+	ArchitectureExample();
+
+	return 0;
 }
 ```
 ## 单元测试
