@@ -74,6 +74,30 @@ protected:
 	void OnDeinit() override {}
 };
 
+
+// 1. 定义一个 Utility
+class LoggerUtility : public IUtility
+{
+public:
+	void Log(const std::string& msg)
+	{
+		std::cout << "[Logger] " << msg << std::endl;
+	}
+};
+
+// 2. 定义一个 Model，使用 Utility
+class MyModel : public AbstractModel
+{
+protected:
+	void OnInit() override
+	{
+		auto logger = GetUtility<LoggerUtility>();
+		logger->Log("MyModel 初始化完成");
+	}
+	void OnDeinit() override {}
+};
+
+
 // 3. 定义一个 System，监听事件
 class PrintSystem : public AbstractSystem
 {
@@ -122,15 +146,37 @@ protected:
 };
 
 
+// 3. 定义一个 Command，使用 Utility
+class PrintCommand : public AbstractCommand
+{
+	std::string mMsg;
+public:
+	PrintCommand(const std::string& msg) : mMsg(msg) {}
+protected:
+	void OnExecute() override
+	{
+		auto logger = GetUtility<LoggerUtility>();
+		logger->Log("PrintCommand 执行: " + mMsg);
+	}
+};
+
+
+
+
 // 5. 定义架构实现
 class MyAppArchitecture : public Architecture
 {
 protected:
 	void Init() override
 	{
+		RegisterUtility(std::make_shared<LoggerUtility>());
+
+		RegisterModel(std::make_shared<MyModel>());
 		RegisterModel(std::make_shared<CounterModel>());
 		RegisterModel(std::make_shared<TestQueryCounterModel>());
+
 		RegisterSystem(std::make_shared<PrintSystem>());
+
 	}
 	void OnDeinit() override {}
 };
@@ -148,6 +194,11 @@ int ArchitectureExample()
 	// 获取 Model
 	auto model = arch->GetModel<CounterModel>();
 	std::cout << "最终计数值: " << model->value << std::endl;
+
+
+	// 发送命令，命令内部会用到 Utility
+	arch->SendCommand<PrintCommand>("Hello Utility!");
+
 
 	arch->Deinit();
 	return 0;
