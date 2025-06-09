@@ -9,3 +9,6 @@
 packages
 JFramework/Debug
 Debug
+JFramework/x64
+UnitTest/x64
+x64
