@@ -1083,7 +1083,7 @@ public:
     bool executed = false;
     std::weak_ptr<IArchitecture> archSet;
 
-public:
+protected:
     void OnExecute() override { executed = true; }
 };
 
@@ -1091,7 +1091,7 @@ TEST(AbstractCommandTest, ExecuteCallsOnExecute)
 {
     MyAbstractCommand cmd;
     EXPECT_FALSE(cmd.executed);
-    cmd.OnExecute();
+    cmd.Execute();
     EXPECT_TRUE(cmd.executed);
 }
 
@@ -1124,6 +1124,15 @@ TEST(AbstractModelTest, InitAndDeinitCallOnInitOnDeinit)
     EXPECT_TRUE(model.inited);
     model.Deinit();
     EXPECT_TRUE(model.deinited);
+}
+
+TEST(AbstractModelTest, SetAndGetArchitecture)
+{
+    auto arch = std::make_shared<TestArch>();
+    auto model = std::make_shared<MyAbstractModel>();
+    arch->RegisterModel<MyAbstractModel>(model);
+    // RegisterModel 会自动调用 SetArchitecture
+    EXPECT_EQ(model->GetArchitecture().lock(), arch);
 }
 
 // ========== AbstractSystem 单元测试 ==========
@@ -1165,6 +1174,15 @@ TEST(AbstractSystemTest, HandleEventCallsOnEvent)
     EXPECT_TRUE(sys.eventHandled);
 }
 
+TEST(AbstractSystemTest, SetAndGetArchitecture)
+{
+    auto arch = std::make_shared<TestArch>();
+    auto model = std::make_shared<MyAbstractSystem>();
+    arch->RegisterSystem<MyAbstractSystem>(model);
+    // RegisterSystem 会自动调用 SetArchitecture
+    EXPECT_EQ(model->GetArchitecture().lock(), arch);
+}
+
 // ========== AbstractController 单元测试 ==========
 class DummyEventForController : public IEvent {
 public:
@@ -1173,11 +1191,34 @@ public:
 
 class MyAbstractController : public AbstractController {
 public:
+    MyAbstractController(std::shared_ptr<IArchitecture> arch)
+        : mArch(arch)
+    {
+    }
     bool eventHandled = false;
+
+    std::weak_ptr<IArchitecture> GetArchitecture() const override { return mArch; }
 
 protected:
     void OnEvent(std::shared_ptr<IEvent> event) override { eventHandled = true; }
+
+private:
+    std::weak_ptr<IArchitecture> mArch;
 };
+
+TEST(AbstractControllerTest, HandleEventCallsOnEvent)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    MyAbstractController ctrl(arch);
+    auto evt = std::make_shared<DummyEventForController>();
+    EXPECT_FALSE(ctrl.eventHandled);
+
+    // 通过接口指针调用 HandleEvent
+    ICanHandleEvent* handler = &ctrl;
+    handler->HandleEvent(evt);
+
+    EXPECT_TRUE(ctrl.eventHandled);
+}
 
 // ========== AbstractQuery 单元测试 ==========
 class MyAbstractQuery : public AbstractQuery<int> {
