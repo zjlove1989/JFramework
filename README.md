@@ -75,7 +75,7 @@ protected:
 	void OnDeinit() override {}
 };
 
-// 1. 定义一个 Utility
+// 3. 定义一个 Utility
 class LoggerUtility : public IUtility
 {
 public:
@@ -85,7 +85,7 @@ public:
 	}
 };
 
-// 2. 定义一个 Model，使用 Utility
+// 4. 定义一个 Model，使用 Utility
 class MyModel : public AbstractModel
 {
 protected:
@@ -97,7 +97,7 @@ protected:
 	void OnDeinit() override {}
 };
 
-// 3. 定义一个 System，监听事件
+// 5. 定义一个 System，监听事件
 class PrintSystem : public AbstractSystem
 {
 protected:
@@ -119,7 +119,7 @@ protected:
 	}
 };
 
-// 4. 定义一个 Command
+// 6. 定义一个 Command
 class AddCommand : public AbstractCommand
 {
 	int delta;
@@ -134,7 +134,7 @@ protected:
 	}
 };
 
-// 1. 定义一个 Model
+// 7. 定义一个 Model
 class TestQueryCounterModel : public AbstractModel
 {
 public:
@@ -144,7 +144,7 @@ protected:
 	void OnDeinit() override {}
 };
 
-// 3. 定义一个 Command，使用 Utility
+// 8. 定义一个 Command，使用 Utility
 class PrintCommand : public AbstractCommand
 {
 	std::string mMsg;
@@ -158,7 +158,7 @@ protected:
 	}
 };
 
-// 2. 定义一个 Query，查询 CounterModel 的值
+// 9. 定义一个 Query，查询 CounterModel 的值
 class GetCounterValueQuery : public AbstractQuery<int>
 {
 protected:
@@ -173,7 +173,7 @@ protected:
 ```
 ### 2. 注册组件到架构
 ```cpp
-// 5. 定义架构实现
+// 10. 定义架构实现
 class MyAppArchitecture : public Architecture
 {
 protected:
@@ -217,18 +217,6 @@ int ArchitectureExample()
 	arch->Deinit();
 	return 0;
 }
-int main(int argc, char** argv)
-{
-	BindablePropertyExample();
-
-	ArchitectureExample();
-
-	return 0;
-}
-```
-
-### 4、BindableProperty使用
-```cpp
 
 void BindablePropertyExample()
 {
@@ -277,6 +265,16 @@ void BindablePropertyExample()
 	}
 	// 这里 autoCounter 再次赋值不会有输出
 }
+
+int main(int argc, char** argv)
+{
+	BindablePropertyExample();
+
+	ArchitectureExample();
+
+	return 0;
+}
+
 
 ```
 ## 单元测试
