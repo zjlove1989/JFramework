@@ -5,6 +5,7 @@
 #include <chrono>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <thread>
 using namespace JFramework;
 
 // ========== 异常测试 ==========
@@ -130,7 +131,50 @@ TEST(EventBusTest, ExceptionInHandlerDoesNotAffectOthers)
     EXPECT_EQ(normalHandler.count, 1);
 }
 
+TEST(EventBusTest, UnRegisterNotRegisteredHandler)
+{
+    EventBus bus;
+    TestHandler handler;
+    // 未注册直接注销，不应崩溃
+    EXPECT_NO_THROW(bus.UnRegisterEvent(typeid(TestEvent), &handler));
+}
+
+TEST(EventBusTest, UnRegisterTwice)
+{
+    EventBus bus;
+    TestHandler handler;
+    bus.RegisterEvent(typeid(TestEvent), &handler);
+    bus.UnRegisterEvent(typeid(TestEvent), &handler);
+    // 再次注销，不应崩溃
+    EXPECT_NO_THROW(bus.UnRegisterEvent(typeid(TestEvent), &handler));
+}
+
+TEST(EventBusTest, ConcurrentRegisterAndSend)
+{
+    EventBus bus;
+    CountingHandler handler;
+    auto reg = [&] {
+        for (int i = 0; i < 100; ++i)
+            bus.RegisterEvent(typeid(TestEvent), &handler);
+    };
+    auto send = [&] {
+        for (int i = 0; i < 100; ++i)
+            bus.SendEvent(std::make_shared<TestEvent>());
+    };
+    std::thread t1(reg), t2(send);
+    t1.join();
+    t2.join();
+    // 只保证不崩溃
+    SUCCEED();
+}
+
 // ========== BindableProperty 测试 ==========
+
+struct CustomType {
+    int x;
+    bool operator==(const CustomType& o) const { return x == o.x; }
+};
+
 TEST(BindablePropertyTest, GetSetValue)
 {
     BindableProperty<int> prop(1);
@@ -421,6 +465,21 @@ TEST(IOCContainerTest, ClearAll)
     EXPECT_EQ(container.Get<IUtility>(typeid(DummyUtility)), nullptr);
 }
 
+TEST(IOCContainerTest, GetUnregisteredReturnsNull)
+{
+    IOCContainer container;
+    auto got = container.Get<IModel>(typeid(DummyModel));
+    EXPECT_EQ(got, nullptr);
+}
+
+TEST(IOCContainerTest, ClearMultipleTimes)
+{
+    IOCContainer container;
+    container.Clear();
+    container.Clear();
+    SUCCEED();
+}
+
 // ========== IArchitecture 测试 ==========
 
 class TestModel : public IModel {
@@ -694,6 +753,26 @@ TEST(BindablePropertyUnRegisterTest, UnRegisterDoesNotAffectOtherObservers)
     prop.SetValue(2);
     EXPECT_EQ(v1, 1); // u1 不再更新
     EXPECT_EQ(v2, 2); // u2 仍然更新
+}
+
+TEST(BindablePropertyTest, CustomTypeBind)
+{
+    BindableProperty<CustomType> prop({ 1 });
+    int observed = 0;
+    auto u = prop.Register([&](const CustomType& v) { observed = v.x; });
+    prop.SetValue({ 42 });
+    EXPECT_EQ(observed, 42);
+}
+
+TEST(BindablePropertyTest, MoveAssignAndMoveConstruct)
+{
+    BindableProperty<int> prop1(1);
+    prop1.SetValue(2);
+    BindableProperty<int> prop2(std::move(prop1));
+    EXPECT_EQ(prop2.GetValue(), 2);
+    BindableProperty<int> prop3;
+    prop3 = std::move(prop2);
+    EXPECT_EQ(prop3.GetValue(), 2);
 }
 
 // ========== 能力接口（ICanGetModel等）单元测试 ==========
@@ -1072,6 +1151,40 @@ TEST(ArchitectureTest, SystemHandleEvent)
     EXPECT_TRUE(sys->eventHandled);
 }
 
+class DummyArchForInit : public Architecture {
+protected:
+    void Init() override { ++initCount; }
+
+public:
+    int initCount = 0;
+};
+
+TEST(ArchitectureTest, InitArchitectureMultipleTimes)
+{
+    auto arch = std::make_shared<DummyArchForInit>();
+    arch->InitArchitecture();
+    arch->InitArchitecture();
+    EXPECT_EQ(arch->initCount, 1);
+}
+
+TEST(ArchitectureTest, DeinitMultipleTimes)
+{
+    auto arch = std::make_shared<DummyArchForInit>();
+    arch->InitArchitecture();
+    arch->Deinit();
+    arch->Deinit();
+    EXPECT_FALSE(arch->IsInitialized());
+}
+
+TEST(ArchitectureTest, RegisterSameTypeDifferentInstance)
+{
+    auto arch = std::make_shared<MyArchitecture>();
+    auto model1 = std::make_shared<ArchTestModel>();
+    arch->RegisterModel<ArchTestModel>(model1);
+    auto model2 = std::make_shared<ArchTestModel>();
+    EXPECT_THROW(arch->RegisterModel<ArchTestModel>(model2), ComponentAlreadyRegisteredException);
+}
+
 // ========== AbstractCommand 单元测试 ==========
 class TestArch : public Architecture {
 protected:
@@ -1250,6 +1363,43 @@ TEST(AbstractQueryTest, SetAndGetArchitecture)
     MyAbstractQuery query;
     query.SetArchitecture(arch);
     EXPECT_EQ(query.GetArchitecture().lock(), arch);
+}
+
+class NoOnExecuteCommand : public AbstractCommand {
+protected:
+    void OnExecute() override { throw std::runtime_error("Not implemented"); }
+};
+
+TEST(AbstractCommandTest, OnExecuteThrows)
+{
+    NoOnExecuteCommand cmd;
+    EXPECT_THROW(cmd.Execute(), std::runtime_error);
+}
+
+class NoOnInitModel : public AbstractModel {
+protected:
+    void OnInit() override { throw std::runtime_error("Not implemented"); }
+    void OnDeinit() override { }
+};
+
+TEST(AbstractModelTest, OnInitThrows)
+{
+    NoOnInitModel model;
+    EXPECT_THROW(model.Init(), std::runtime_error);
+}
+
+class NoOnEventSystem : public AbstractSystem {
+protected:
+    void OnInit() override { }
+    void OnDeinit() override { }
+    void OnEvent(std::shared_ptr<IEvent>) override { throw std::runtime_error("Not implemented"); }
+};
+
+TEST(AbstractSystemTest, OnEventThrows)
+{
+    NoOnEventSystem sys;
+    auto evt = std::make_shared<DummyEventForSystem>();
+    EXPECT_THROW(sys.HandleEvent(evt), std::runtime_error);
 }
 
 int main(int argc, char** argv)

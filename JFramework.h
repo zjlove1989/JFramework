@@ -307,6 +307,8 @@ public:
         return this->SendQuery(std::move(query));
     }
 
+    bool IsInitialized() const { return mInitialized; }
+
 protected:
     bool mInitialized = false;
     std::unique_ptr<IOCContainer> mContainer;
@@ -365,6 +367,11 @@ public:
     }
     int GetId() const { return mId; }
 
+    void SetProperty(BindableProperty<_Ty>* property)
+    {
+        mProperty = property;
+    }
+
     void UnRegister() override
     {
         if (mProperty) {
@@ -393,7 +400,39 @@ template <typename _Ty>
 class BindableProperty {
 public:
     BindableProperty() = default;
+    // 禁止拷贝构造和拷贝赋值
+    BindableProperty(const BindableProperty&) = delete;
+    BindableProperty& operator=(const BindableProperty&) = delete;
+    BindableProperty(BindableProperty&& other) noexcept
+    {
+        std::lock_guard<std::mutex> lock(other.mMutex);
+        mValue = std::move(other.mValue);
+        mObservers = std::move(other.mObservers);
+        mNextId = other.mNextId;
+        // 更新所有observer的mProperty指针
+        for (auto& observer : mObservers) {
+            if (observer)
+                observer->SetProperty(this);
+        }
+        other.mNextId = 0;
+    }
 
+    BindableProperty& operator=(BindableProperty&& other) noexcept
+    {
+        if (this != &other) {
+            std::lock_guard<std::mutex> lock1(mMutex);
+            std::lock_guard<std::mutex> lock2(other.mMutex);
+            mValue = std::move(other.mValue);
+            mObservers = std::move(other.mObservers);
+            mNextId = other.mNextId;
+            for (auto& observer : mObservers) {
+                if (observer)
+                    observer->SetProperty(this);
+            }
+            other.mNextId = 0;
+        }
+        return *this;
+    }
     explicit BindableProperty(const _Ty& value)
         : mValue(std::move(value))
     {
@@ -401,7 +440,6 @@ public:
 
     ~BindableProperty()
     {
-        // 确保所有观察者都被释放
         std::lock_guard<std::mutex> lock(mMutex);
         mObservers.clear();
     }
