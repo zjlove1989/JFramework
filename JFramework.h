@@ -81,7 +81,6 @@ class IOCContainer;
 class IEvent {
 public:
     virtual ~IEvent() = default;
-    virtual std::string GetEventType() const = 0;
 };
 
 /// @brief 处理Event能力

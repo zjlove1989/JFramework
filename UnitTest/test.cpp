@@ -24,8 +24,6 @@ TEST(ExceptionTest, ComponentAlreadyRegisteredException)
 // ========== EventBus 测试 ==========
 class TestEvent : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "TestEvent"; }
 };
 
 class TestHandler : public ICanHandleEvent
@@ -68,8 +66,6 @@ TEST(EventBusTest, Clear)
 
 class AnotherEvent : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "AnotherEvent"; }
 };
 
 class CountingHandler : public ICanHandleEvent
@@ -558,8 +554,6 @@ TEST(ArchitectureTest, GetUnregisteredThrows)
 // 事件注册与分发
 class MyEvent : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "MyEvent"; }
 };
 class MyHandler : public ICanHandleEvent
 {
@@ -802,8 +796,6 @@ protected:
 
 class DummyEvent : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "DummyEvent"; }
 };
 
 class DummyHandler : public ICanHandleEvent
@@ -1056,8 +1048,6 @@ class ArchTestUtility : public IUtility {};
 
 class ArchTestEvent : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "ArchTestEvent"; }
 };
 
 class ArchTestHandler : public ICanHandleEvent
@@ -1291,8 +1281,6 @@ TEST(AbstractModelTest, SetAndGetArchitecture)
 // ========== AbstractSystem 单元测试 ==========
 class DummyEventForSystem : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "DummyEventForSystem"; }
 };
 
 class MyAbstractSystem : public AbstractSystem
@@ -1341,8 +1329,6 @@ TEST(AbstractSystemTest, SetAndGetArchitecture)
 // ========== AbstractController 单元测试 ==========
 class DummyEventForController : public IEvent
 {
-public:
-	std::string GetEventType() const override { return "DummyEventForController"; }
 };
 
 class MyAbstractController : public AbstractController

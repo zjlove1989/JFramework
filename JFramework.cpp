@@ -59,7 +59,6 @@ class MyEvent : public IEvent
 public:
 	std::string msg;
 	MyEvent(const std::string& m) : msg(m) {}
-	std::string GetEventType() const override { return "MyEvent"; }
 };
 
 // 2. 定义一个 Model
