@@ -33,7 +33,6 @@
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
-#include <windows.h>
 
 namespace JFramework {
 // ================ “Ï≥£∂®“Â ================
