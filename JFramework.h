@@ -27,6 +27,7 @@
 
 #include <exception>
 #include <functional>
+#include <iostream> // For default logger
 #include <memory>
 #include <mutex>
 #include <string>
@@ -78,6 +79,47 @@ namespace JFramework
 		{
 		}
 	};
+
+	// ================ 异常日志接口 ================
+	class IExceptionLogger
+	{
+	public:
+		virtual ~IExceptionLogger() = default;
+		virtual void LogException(const std::exception& e, const char* context = nullptr) = 0;
+	};
+
+	// 默认异常日志实现（输出到 std::cerr）
+	class DefaultExceptionLogger : public IExceptionLogger
+	{
+	public:
+		void LogException(const std::exception& e, const char* context = nullptr) override
+		{
+			if (context)
+				std::cerr << "[Exception][" << context << "] " << e.what() << std::endl;
+			else
+				std::cerr << "[Exception] " << e.what() << std::endl;
+		}
+	};
+
+	// ================ 异常日志全局管理 ================
+	class ExceptionLoggerManager
+	{
+	public:
+		static IExceptionLogger* GetLogger()
+		{
+			static DefaultExceptionLogger defaultLogger;
+			return mLogger ? mLogger : &defaultLogger;
+		}
+		static void SetLogger(IExceptionLogger* logger)
+		{
+			mLogger = logger;
+		}
+	private:
+		static IExceptionLogger* mLogger;
+	};
+
+	// 定义静态成员
+	IExceptionLogger* ExceptionLoggerManager::ExceptionLoggerManager::mLogger = nullptr;
 
 	// ================ 前向声明 ================
 	class ISystem;
@@ -133,11 +175,15 @@ namespace JFramework
 				{
 					handler->HandleEvent(event);
 				}
-				catch (const std::exception&)
+				catch (const std::exception& e)
 				{
-
+					ExceptionLoggerManager::GetLogger()->LogException(e, "EventBus::SendEvent");
 				}
-
+				catch (...)
+				{
+					ExceptionLoggerManager::GetLogger()->LogException(
+						std::runtime_error("Unknown exception"), "EventBus::SendEvent");
+				}
 			}
 		}
 
@@ -503,8 +549,14 @@ namespace JFramework
 				{
 					observer->Invoke(mValue);
 				}
+				catch (const std::exception& e)
+				{
+					ExceptionLoggerManager::GetLogger()->LogException(e, "BindableProperty::SetValue");
+				}
 				catch (...)
 				{
+					ExceptionLoggerManager::GetLogger()->LogException(
+						std::runtime_error("Unknown exception"), "BindableProperty::SetValue");
 				}
 			}
 		}
