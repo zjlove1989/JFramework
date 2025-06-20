@@ -575,7 +575,7 @@ TEST(ArchitectureTest, RegisterEventAndSendEvent)
 }
 
 // √¸¡Ó∑÷∑¢
-class MyCommand : public ICommand
+class MyCommand : public IJCommand
 {
 public:
 	bool executed = false;
@@ -806,7 +806,7 @@ public:
 };
 
 // ICommand ≤‚ ‘”√
-class DummyCommand : public ICommand
+class DummyCommand : public IJCommand
 {
 public:
 	bool executed = false;
@@ -1057,7 +1057,7 @@ public:
 	void HandleEvent(std::shared_ptr<IEvent>) override { called = true; }
 };
 
-class ArchTestCommand : public ICommand
+class ArchTestCommand : public IJCommand
 {
 public:
 	bool executed = false;
