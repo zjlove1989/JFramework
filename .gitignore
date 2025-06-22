@@ -12,3 +12,5 @@ Debug
 JFramework/x64
 UnitTest/x64
 x64
+JFramework/Release
+Release
